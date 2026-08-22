@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="hy">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- maximum-scale + user-scalable=no: pinch-zoom on a drawing surface
+         fights the pointer handlers. viewport-fit=cover so the paper runs
+         under the notch instead of leaving a letterbox. -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#efe9d8" />
+    <meta name="description" content="Digital Soviet grid notebook — draw and export SVG" />
+
+    <!-- Add-to-home-screen: launches without browser chrome, like an app. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Տետր" />
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <!-- iOS ignores the manifest for home-screen icons and needs its own tag. -->
+    <link rel="apple-touch-icon" href="./icon-maskable.svg" />
+    <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+
+    <title>Տետր 🦊</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
