@@ -47,7 +47,7 @@ oscillators and filtered noise — nothing licensed, nothing fetched, zero bytes
 shipped. Works on a plane.
 
 ```bash
-npm test          # 195 tests
+npm test          # 207 tests
 npm run build
 ```
 
@@ -58,6 +58,11 @@ Static output — any host works.
 ```bash
 npm run build     # → dist/
 ```
+
+Pushing to `prod` builds and publishes to GitHub Pages via
+`.github/workflows/deploy.yml`. It needs **Settings → Pages → Source: GitHub
+Actions** once; serving the branch root instead publishes the source tree,
+which is a blank page.
 
 `base: './'` in `vite.config.js` means it runs from a subdirectory too
 (GitHub Pages, a folder on a shared host) without changes.

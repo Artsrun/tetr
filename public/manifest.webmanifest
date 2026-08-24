@@ -1,0 +1,15 @@
+{
+  "name": "Տետր",
+  "short_name": "Տետր",
+  "description": "Digital Soviet grid notebook — draw and export SVG",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#efe9d8",
+  "theme_color": "#efe9d8",
+  "icons": [
+    { "src": "./icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "./icon-maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

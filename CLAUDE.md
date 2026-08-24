@@ -28,6 +28,7 @@ src/
   hooks/usePersist  autosave to localStorage
   lib/pencil.js     graphite texture — SVG filter, not WebGL
   lib/instruments   ruler/calliper math (the triple-tap easter egg)
+  lib/gestures.js   triple-tap tracker — strict on purpose, see below
   lib/constants.js  design tokens, mirrored in index.css
   hooks/useDrawing  all stroke state, history, derived stats
   components/       one control per file, all built on ToolButton
@@ -143,6 +144,32 @@ makes freehand impossible.
 **Instruments render in a sibling `<svg>`, not the paper.** A ruler that ends
 up in someone's Figma file is a bug.
 
+**Strokes and redo are one state object, not two.** `useDrawing` keeps
+`{ strokes, redo }` in a single `useState`. With two hooks, an undo/redo
+transition is split across two updaters, and React runs updaters in
+hook-declaration order — so `redo` read a value the other updater had not
+written yet and silently restored nothing. One updater makes every transition
+atomic.
+
+**The service worker registers against `document.baseURI`, not
+`import.meta.url`.** The bundle lives in `assets/` but `sw.js` sits beside
+`index.html`; resolving against the module URL asks for `assets/sw.js`, gets
+the SPA fallback, and fails with an MIME-type error. `baseURI` is also what
+keeps registration correct from a subdirectory.
+
+**`projectToLine` rounds its result.** The projection is float-noisy
+(`199.99999999999997`), and a snapped point is meant to be exact — it feeds
+drawing, gestures and the export alike.
+
+**The toolbar is two explicit rows, not `flex-wrap`.** Wrapping put sixteen
+controls on three rows and took a quarter of the page. The paper wins every
+argument with the chrome.
+
+**Tests run in a 390×700 window.** jsdom defaults to 1024×768, where the
+instruments sit under coordinates a phone would never put them — a triple-tap
+in the middle of the page landed on the ruler instead. The whole product is
+touch, so the test viewport is a phone.
+
 **`getCoalescedEvents` in the move handler.** Replays samples the browser
 batched between frames. On 120Hz displays it's the difference between a smooth
 curve and a faceted one.
@@ -154,7 +181,7 @@ npm test          # once
 npm run test:watch
 ```
 
-195 tests. Keep it that way — logic lives in `lib/` and `hooks/` precisely so it
+207 tests. Keep it that way — logic lives in `lib/` and `hooks/` precisely so it
 can be tested without rendering.
 
 Note: tests dispatch `pointerdown`, not `click`, because that's what the
