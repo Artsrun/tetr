@@ -3,7 +3,7 @@ import { COLORS } from '../lib/constants.js'
 import { isMuted, toggleMute } from '../lib/sound.js'
 import ToolButton from './ToolButton.jsx'
 
-export default function Stats({ stats, offline }) {
+export default function Stats({ stats, offline, onHelp }) {
   const [open, setOpen] = useState(false)
   const [muted, setMuted] = useState(isMuted)
 
@@ -20,7 +20,7 @@ export default function Stats({ stats, offline }) {
           📈 <span className="stats__summary">{stats.strokes} · {stats.cells} □</span>
         </ToolButton>
 
-        {offline && <span className="stats__offline" title="Offline">◍</span>}
+        {offline && <span className="stats__offline" title="Offline">◑</span>}
 
         <ToolButton
           label={muted ? 'Միացնել ձայնը' : 'Անջատել ձայնը'}
@@ -30,6 +30,12 @@ export default function Stats({ stats, offline }) {
         >
           {muted ? '🔇' : '🔈'}
         </ToolButton>
+
+        {onHelp && (
+          <ToolButton label="Բացել ուղեցույցը" className="stats__help" onPress={onHelp}>
+            ?
+          </ToolButton>
+        )}
       </div>
 
       {open && (

@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Canvas from './components/Canvas.jsx'
 import Celebration from './components/Celebration.jsx'
-import InstallBanner from './components/InstallBanner.jsx'
+import Hint from './components/Hint.jsx'
 import Instruments from './components/Instruments.jsx'
 import Stats from './components/Stats.jsx'
 import Toolbar from './components/Toolbar.jsx'
+import Wizard from './components/Wizard.jsx'
 import { useDrawing } from './hooks/useDrawing.js'
 import { load, usePersist } from './hooks/usePersist.js'
 import { usePWA } from './hooks/usePWA.js'
@@ -46,6 +47,7 @@ export default function App() {
   })
   const [instrument, setInstrument] = useState(null)
   const [party, setParty] = useState(false)
+  const [coachTick, setCoachTick] = useState(0)
 
   const canvasRef = useRef(null)
   const tapsRef = useRef(createTapTracker())
@@ -53,7 +55,6 @@ export default function App() {
 
   usePersist(drawing.strokes)
 
-  // Restore whatever survived the last session before the first paint matters.
   const restored = useRef(false)
   useEffect(() => {
     if (restored.current) return
@@ -62,7 +63,6 @@ export default function App() {
     if (saved?.strokes?.length) drawing.restore(saved)
   }, [drawing])
 
-  /** One call, two outputs — see Celebration. */
   const celebrate = useCallback(() => {
     play('celebrate')
     setParty(true)
@@ -72,8 +72,6 @@ export default function App() {
   const handleTap = useCallback(
     (point) => {
       if (!tapsRef.current.push(point)) return false
-      // Consumed: cancel the stroke in flight so the gesture doesn't also
-      // commit three dots.
       drawing.cancel()
       setInstrument((cur) => {
         if (!cur) return defaultRuler(size.width, size.height)
@@ -86,11 +84,9 @@ export default function App() {
     [drawing, size.width, size.height, celebrate],
   )
 
-  /** @returns true when the instrument consumed the pointer. */
   const handleInstrumentDrag = useCallback(
     (point, phase) => {
       if (!instrument) return false
-
       if (phase === 'down') {
         const handle = grabHandle(point, instrument)
         const near = handle || isNearBody(point, instrument)
@@ -98,9 +94,7 @@ export default function App() {
         dragRef.current = { handle, last: point }
         return true
       }
-
       if (!dragRef.current) return false
-
       if (phase === 'move') {
         const { handle, last } = dragRef.current
         setInstrument((cur) => {
@@ -111,7 +105,6 @@ export default function App() {
         dragRef.current.last = point
         return true
       }
-
       dragRef.current = null
       return true
     },
@@ -130,7 +123,6 @@ export default function App() {
     [drawing.strokes, size],
   )
 
-  // Desktop keyboard: ⌘Z / ⇧⌘Z / ⌘S / ⌘P.
   useEffect(() => {
     const onKey = (e) => {
       const mod = e.metaKey || e.ctrlKey
@@ -164,9 +156,7 @@ export default function App() {
         onTap={handleTap}
         onDragInstrument={handleInstrumentDrag}
       />
-
       <Instruments instrument={instrument} size={size} />
-
       <Toolbar
         style={style}
         setStyle={setStyle}
@@ -175,15 +165,18 @@ export default function App() {
         onExport={handleExport}
         onPrint={handlePrint}
       />
-
-      <Stats stats={drawing.stats} offline={pwa.offline} />
-      <InstallBanner pwa={pwa} hasDrawn={drawing.strokes.length > 0} />
+      <Hint shape={style.shape} />
+      <Stats
+        stats={drawing.stats}
+        offline={pwa.offline}
+        onHelp={() => setCoachTick((n) => n + 1)}
+      />
+      <Wizard replay={coachTick} />
       <Celebration active={party} />
     </div>
   )
 }
 
-/** Within a ruler-width of the body counts as grabbing it. */
 function isNearBody(point, instrument) {
   const { a, b } = instrument
   const len = Math.hypot(b.x - a.x, b.y - a.y)

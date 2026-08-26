@@ -5,7 +5,7 @@
 // once cached the app is permanently offline-capable — which is exactly right
 // for a drawing tool. The drawing itself lives in localStorage, never here.
 
-const CACHE = 'tetr-v2'
+const CACHE = 'tetr-v3'
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-maskable.svg']
 
 self.addEventListener('install', (event) => {
@@ -35,14 +35,12 @@ self.addEventListener('fetch', (event) => {
       if (hit) return hit
       return fetch(request)
         .then((response) => {
-          // Opaque and error responses are not worth caching.
           if (!response || response.status !== 200 || response.type !== 'basic') return response
           const copy = response.clone()
           caches.open(CACHE).then((cache) => cache.put(request, copy)).catch(() => {})
           return response
         })
         .catch(() =>
-          // A navigation offline with a cold cache still gets the shell.
           request.mode === 'navigate' ? caches.match('./index.html') : Response.error(),
         )
     }),
