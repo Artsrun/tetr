@@ -45,8 +45,8 @@ afterEach(() => {
 })
 
 describe('cues', () => {
-  it('ships seven of them', () => {
-    expect(CUE_NAMES).toHaveLength(7)
+  it('ships eight of them', () => {
+    expect(CUE_NAMES).toHaveLength(8)
   })
 
   it('plays every cue without a network request or an audio file', () => {
