@@ -10,7 +10,7 @@
   --chrome-edge: #cfc4a8;
   --shadow: rgba(32, 34, 42, 0.18);
   --grid-size: 24px;
-  --tap: 44px; /* nothing smaller is reliably hittable with a thumb */
+  --tap: 44px;
 }
 
 * { box-sizing: border-box; }
@@ -24,7 +24,6 @@ body {
   background: var(--paper);
   color: var(--ink);
   font: 15px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
-  /* Without this, a downward stroke triggers pull-to-refresh. */
   overscroll-behavior: none;
   -webkit-user-select: none;
   user-select: none;
@@ -37,7 +36,6 @@ body {
   overflow: hidden;
 }
 
-/* touch-action: none — without it a downward stroke scrolls the page. */
 .paper {
   position: absolute;
   inset: 0;
@@ -65,8 +63,6 @@ body {
   font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
   fill: rgba(40, 40, 46, 0.7);
 }
-
-/* ── Controls ─────────────────────────────────────────────────────────── */
 
 .tool {
   min-width: var(--tap);
@@ -111,14 +107,9 @@ body {
 }
 .toolbar__row { display: flex; align-items: center; justify-content: center; gap: 4px; }
 .toolbar__group, .picker { display: flex; align-items: center; gap: 2px; }
-
-/* Swatches and width dots are read by their contents, not their labels, so
-   they can be narrower than a full tap target without becoming hard to hit —
-   they stay 44px tall. */
 .picker .tool { min-width: 38px; padding: 0 2px; }
 .toolbar__group + .toolbar__group { border-left: 1px solid var(--chrome-edge); padding-left: 4px; }
 
-/* The ring shows how much of the drawing uses this colour. */
 .swatch { position: relative; }
 .swatch__dot {
   width: 22px; height: 22px; border-radius: 50%;
@@ -135,8 +126,6 @@ body {
   -webkit-mask: radial-gradient(circle, transparent 62%, #000 64%);
 }
 .swatch.is-active .swatch__dot { box-shadow: inset 0 0 0 1px rgba(0,0,0,.3), 0 0 0 2px var(--ink); }
-
-/* Rendered at the actual stroke size — no abstraction to decode. */
 .width__dot { border-radius: 50%; display: block; }
 
 .clear.is-armed {
@@ -145,8 +134,6 @@ body {
   animation: pulse 900ms ease-in-out infinite;
 }
 @keyframes pulse { 50% { opacity: 0.62; } }
-
-/* ── Stats ────────────────────────────────────────────────────────────── */
 
 .stats {
   position: absolute;
@@ -170,7 +157,6 @@ body {
 .stats__toggle { font-size: 14px; }
 .stats__summary { font: 600 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace; opacity: 0.75; }
 .stats__offline { font-size: 12px; opacity: 0.6; padding: 0 4px; }
-
 .stats__detail {
   pointer-events: auto;
   margin: 6px 0 0 auto;
@@ -189,29 +175,65 @@ body {
 .stats__colors dd { display: flex; gap: 2px; width: 96px; }
 .stats__chip { height: 10px; border-radius: 2px; min-width: 3px; }
 
-/* ── Install banner ───────────────────────────────────────────────────── */
-
-.install {
+.hint {
   position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: calc(64px + env(safe-area-inset-bottom));
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 6px 8px;
-  background: rgba(32, 34, 42, 0.9);
-  color: #f4efe0;
-  border-radius: 12px;
-  font-size: 13px;
-  box-shadow: 0 6px 20px var(--shadow);
+  left: 50%;
+  top: calc(52px + env(safe-area-inset-top));
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 5px 12px;
+  max-width: calc(100% - 24px);
+  background: rgba(228, 220, 199, 0.9);
+  border: 1px solid var(--chrome-edge);
+  border-radius: 999px;
+  font-size: 12px;
+  letter-spacing: 0.01em;
+  color: rgba(32, 34, 42, 0.72);
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.install .tool { color: inherit; min-height: 32px; min-width: 32px; font-size: 14px; }
-.install__go { background: rgba(255,255,255,.16); border-radius: 8px; padding: 0 12px; }
 
-/* ── Celebration ──────────────────────────────────────────────────────── */
-/* 410ms of sweep against 410ms of chime; the stamp lands on the final pip. */
+.coach {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: calc(148px + env(safe-area-inset-bottom));
+  padding: 14px 14px 10px;
+  background: rgba(244, 239, 224, 0.96);
+  border: 1px solid var(--chrome-edge);
+  border-radius: 16px;
+  box-shadow: 0 10px 28px var(--shadow);
+  color: var(--ink);
+}
+.coach__pips { display: flex; gap: 6px; margin-bottom: 8px; }
+.coach__pip {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--chrome-edge);
+}
+.coach__pip.is-on { background: var(--ink); }
+.coach__pip.is-done { background: #6b8f71; }
+.coach__kicker {
+  margin: 0 0 2px;
+  font: 600 11px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+.coach__title { margin: 0 0 6px; font-size: 18px; font-weight: 650; letter-spacing: -0.02em; }
+.coach__body { margin: 0 0 12px; font-size: 14px; line-height: 1.45; opacity: 0.78; }
+.coach__row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.coach__skip { font-size: 13px; opacity: 0.65; min-width: auto; padding: 0 8px; }
+.coach__next {
+  min-width: auto;
+  padding: 0 14px;
+  background: var(--ink);
+  color: #f4efe0;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.stats__help { font-weight: 700; font-size: 16px; }
 
 .celebrate { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .celebrate__sweep {
@@ -221,7 +243,6 @@ body {
   animation: sweep 410ms ease-out forwards;
 }
 @keyframes sweep { to { transform: translateX(100%); } }
-
 .celebrate__stamp {
   position: absolute;
   left: 50%; top: 50%;
