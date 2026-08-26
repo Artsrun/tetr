@@ -1,7 +1,7 @@
 import { SHAPE_ELLIPSE, SHAPE_FREE, SHAPE_LINE, SHAPE_RECT, SHAPE_TRIANGLE } from '../lib/shapes.js'
 
 const COPY = {
-  [SHAPE_FREE]: 'Մատով գծիր · երեք հպում՝ քանոն',
+  [SHAPE_FREE]: 'Մատով գծիր · երկու մատ՝ խոշորացում',
   [SHAPE_LINE]: 'Մաշիր գիծ · մոտ 15°՝ կողպվում է',
   [SHAPE_RECT]: 'Մաշիր արկղ · քառակուսին ինքն է նստում',
   [SHAPE_ELLIPSE]: 'Մաշիր օվալ · շրջանը կողպվում է',

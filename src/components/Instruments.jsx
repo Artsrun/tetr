@@ -1,10 +1,7 @@
 import { CALLIPER, measure } from '../lib/instruments.js'
+import { defaultView, viewBox as toViewBox } from '../lib/zoom.js'
 
-/**
- * Instruments render in a sibling <svg>, not the paper (CLAUDE.md) — a ruler
- * that ends up in someone's Figma file is a bug.
- */
-export default function Instruments({ instrument, size }) {
+export default function Instruments({ instrument, size, view = defaultView() }) {
   if (!instrument) return null
   const m = measure(instrument)
   const { a, b } = instrument
@@ -16,7 +13,7 @@ export default function Instruments({ instrument, size }) {
       className="instruments"
       width={size.width}
       height={size.height}
-      viewBox={`0 0 ${size.width} ${size.height}`}
+      viewBox={toViewBox(view, size)}
       aria-hidden="true"
     >
       <g transform={`rotate(${angle} ${mid.x} ${mid.y})`}>
