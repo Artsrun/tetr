@@ -12,6 +12,7 @@ import { usePWA } from './hooks/usePWA.js'
 import { DEFAULT_COLOR, DEFAULT_WIDTH } from './lib/constants.js'
 import { download, filename, toSVG } from './lib/export.js'
 import { SHAPE_FREE } from './lib/shapes.js'
+import { ZOOM_STEP, clampView, defaultView, zoomAt } from './lib/zoom.js'
 import { createTapTracker } from './lib/gestures.js'
 import { CALLIPER, RULER, defaultCalliper, defaultRuler, grabHandle, translate } from './lib/instruments.js'
 import { print } from './lib/print.js'
@@ -48,19 +49,20 @@ export default function App() {
   const [instrument, setInstrument] = useState(null)
   const [party, setParty] = useState(false)
   const [coachTick, setCoachTick] = useState(0)
+  const [view, setView] = useState(defaultView)
 
   const canvasRef = useRef(null)
   const tapsRef = useRef(createTapTracker())
   const dragRef = useRef(null)
 
-  usePersist(drawing.strokes)
+  usePersist({ pages: drawing.pages, index: drawing.pageIndex })
 
   const restored = useRef(false)
   useEffect(() => {
     if (restored.current) return
     restored.current = true
     const saved = load()
-    if (saved?.strokes?.length) drawing.restore(saved)
+    if (saved?.pages?.length || saved?.strokes?.length) drawing.restore(saved)
   }, [drawing])
 
   const celebrate = useCallback(() => {
@@ -123,6 +125,15 @@ export default function App() {
     [drawing.strokes, size],
   )
 
+  const bumpZoom = useCallback((delta) => {
+    setView((cur) => zoomAt(
+      cur,
+      size,
+      { x: size.width / 2, y: size.height / 2 },
+      cur.scale + delta,
+    ))
+  }, [size])
+
   useEffect(() => {
     const onKey = (e) => {
       const mod = e.metaKey || e.ctrlKey
@@ -139,9 +150,28 @@ export default function App() {
         handlePrint(true)
       }
     }
+    const onPlain = (e) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      if (e.target?.closest?.('input, textarea')) return
+      if (e.key === '[') drawing.goPage(drawing.pageIndex - 1)
+      if (e.key === ']') drawing.goPage(drawing.pageIndex + 1)
+      if (e.key === '=' || e.key === '+') {
+        e.preventDefault()
+        bumpZoom(ZOOM_STEP)
+      }
+      if (e.key === '-' || e.key === '_') {
+        e.preventDefault()
+        bumpZoom(-ZOOM_STEP)
+      }
+      if (e.key === '0') setView(defaultView())
+    }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [drawing, handleExport, handlePrint])
+    window.addEventListener('keydown', onPlain)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keydown', onPlain)
+    }
+  }, [drawing, handleExport, handlePrint, bumpZoom])
 
   const byColor = useMemo(() => drawing.stats.byColor, [drawing.stats.byColor])
 
@@ -153,17 +183,26 @@ export default function App() {
         style={style}
         instrument={instrument}
         size={size}
+        view={view}
+        onViewChange={(next) => setView(clampView(next, size))}
         onTap={handleTap}
         onDragInstrument={handleInstrumentDrag}
       />
-      <Instruments instrument={instrument} size={size} />
+      <Instruments instrument={instrument} size={size} view={view} />
       <Toolbar
         style={style}
         setStyle={setStyle}
         drawing={drawing}
         byColor={byColor}
+        view={view}
         onExport={handleExport}
         onPrint={handlePrint}
+        onPrevPage={() => drawing.goPage(drawing.pageIndex - 1)}
+        onNextPage={() => drawing.goPage(drawing.pageIndex + 1)}
+        onAddPage={drawing.addPage}
+        onZoomIn={() => bumpZoom(ZOOM_STEP)}
+        onZoomOut={() => bumpZoom(-ZOOM_STEP)}
+        onZoomReset={() => setView(defaultView())}
       />
       <Hint shape={style.shape} />
       <Stats
