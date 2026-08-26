@@ -5,24 +5,34 @@ import { snapToInstrument } from '../lib/instruments.js'
 import { PENCIL_FILTER, PENCIL_FILTER_ID, filterRef } from '../lib/pencil.js'
 import { isShape, shapeFromDrag } from '../lib/shapes.js'
 import { play, unlock } from '../lib/sound.js'
+import { defaultView, pinchToView, screenToWorld, viewBox as toViewBox } from '../lib/zoom.js'
 
 const Canvas = forwardRef(function Canvas(
-  { drawing, style, instrument, size, onTap, onDragInstrument },
+  { drawing, style, instrument, size, view = defaultView(), onViewChange, onTap, onDragInstrument },
   ref,
 ) {
   const svgRef = useRef(null)
   const startRef = useRef(null)
   const movedRef = useRef(0)
   const shapeLockRef = useRef(null)
+  const pointersRef = useRef(new Map())
+  const pinchRef = useRef(null)
+
+  const screenOf = useCallback((e) => {
+    const rect = svgRef.current?.getBoundingClientRect?.() || { left: 0, top: 0, width: size.width, height: size.height }
+    return {
+      x: ((e.clientX - rect.left) / (rect.width || 1)) * size.width,
+      y: ((e.clientY - rect.top) / (rect.height || 1)) * size.height,
+    }
+  }, [size])
 
   const at = useCallback(
     (e) => {
-      const rect = svgRef.current?.getBoundingClientRect?.() || { left: 0, top: 0 }
-      let point = { x: e.clientX - rect.left, y: e.clientY - rect.top }
+      let point = screenToWorld(screenOf(e), view, size)
       point = snapToInstrument(point, instrument)
       return point
     },
-    [instrument],
+    [instrument, screenOf, view, size],
   )
 
   useImperativeHandle(ref, () => ({ at, node: () => svgRef.current }), [at])
@@ -34,6 +44,17 @@ const Canvas = forwardRef(function Canvas(
       e.preventDefault()
       svgRef.current?.setPointerCapture?.(e.pointerId)
 
+      const screen = screenOf(e)
+      pointersRef.current.set(e.pointerId, screen)
+
+      if (pointersRef.current.size >= 2) {
+        drawing.cancel()
+        startRef.current = null
+        const pts = [...pointersRef.current.values()]
+        pinchRef.current = { view, a: pts[0], b: pts[1] }
+        return
+      }
+
       const point = at(e)
       startRef.current = { point, time: Date.now(), id: e.pointerId }
       movedRef.current = 0
@@ -43,16 +64,29 @@ const Canvas = forwardRef(function Canvas(
       if (isShape(style.shape)) return
       drawing.begin(point, style)
     },
-    [at, drawing, style, onDragInstrument],
+    [at, drawing, style, onDragInstrument, screenOf, view],
   )
 
   const handleMove = useCallback(
     (e) => {
-      if (!startRef.current) return
       e.preventDefault()
-
+      if (pointersRef.current.has(e.pointerId)) {
+        pointersRef.current.set(e.pointerId, screenOf(e))
+      }
+      if (pinchRef.current && pointersRef.current.size >= 2) {
+        const pts = [...pointersRef.current.values()]
+        onViewChange?.(pinchToView(
+          pinchRef.current.view,
+          pinchRef.current.a,
+          pinchRef.current.b,
+          pts[0],
+          pts[1],
+          size,
+        ))
+        return
+      }
+      if (!startRef.current) return
       if (onDragInstrument?.(at(e), 'move')) return
-
       if (isShape(style.shape)) {
         const now = at(e)
         movedRef.current = dist(startRef.current.point, now)
@@ -62,9 +96,7 @@ const Canvas = forwardRef(function Canvas(
         drawing.preview?.(fig.d)
         return
       }
-
       if (!drawing.isDrawing()) return
-
       const events = e.nativeEvent?.getCoalescedEvents?.() || []
       const raw = events.length ? events : [e]
       const points = raw.map((ev) => at(ev))
@@ -72,28 +104,27 @@ const Canvas = forwardRef(function Canvas(
       if (first) movedRef.current += dist(startRef.current.point, first)
       drawing.extend(points)
     },
-    [at, drawing, onDragInstrument, style.shape],
+    [at, drawing, onDragInstrument, style.shape, screenOf, size, onViewChange],
   )
 
   const handleUp = useCallback(
     (e) => {
+      pointersRef.current.delete(e.pointerId)
+      const pinched = !!pinchRef.current
+      if (pointersRef.current.size < 2) pinchRef.current = null
       const start = startRef.current
       startRef.current = null
-      if (!start) return
       svgRef.current?.releasePointerCapture?.(e.pointerId)
-
+      if (!start || pinched) return
       if (onDragInstrument?.(at(e), 'up')) return
-
       const point = at(e)
       const travelled = dist(start.point, point)
-
       if (travelled <= TAP_DRAG_LIMIT) {
         drawing.preview?.('')
         const consumed = onTap?.(point)
         if (consumed) return
         if (isShape(style.shape)) return
       }
-
       if (isShape(style.shape)) {
         const fig = shapeFromDrag(style.shape, start.point, point)
         drawing.commitPath(fig.d, style, {
@@ -118,7 +149,7 @@ const Canvas = forwardRef(function Canvas(
       className="paper"
       width={width}
       height={height}
-      viewBox={`0 0 ${width} ${height}`}
+      viewBox={toViewBox(view, size)}
       onPointerDown={handleDown}
       onPointerMove={handleMove}
       onPointerUp={handleUp}
@@ -142,9 +173,7 @@ const Canvas = forwardRef(function Canvas(
           />
         </filter>
       </defs>
-
       <rect width={width} height={height} fill={PAPER} />
-
       <g className="grid" shapeRendering="crispEdges" aria-hidden="true">
         {Array.from({ length: cols }, (_, i) => (
           <line
@@ -167,7 +196,6 @@ const Canvas = forwardRef(function Canvas(
           stroke={MARGIN_LINE} strokeWidth={1}
         />
       </g>
-
       <g className="strokes" fill="none">
         {drawing.strokes.map((s) => (
           <path
@@ -182,7 +210,6 @@ const Canvas = forwardRef(function Canvas(
           />
         ))}
       </g>
-
       <path
         ref={drawing.liveRef}
         className="live"
