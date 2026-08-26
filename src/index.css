@@ -106,6 +106,30 @@ body {
   box-shadow: 0 -2px 12px var(--shadow);
 }
 .toolbar__row { display: flex; align-items: center; justify-content: center; gap: 4px; }
+.folio {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  max-width: 420px;
+  padding: 0 4px 2px;
+}
+.folio__pages, .folio__zoom {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  background: rgba(255, 255, 255, 0.35);
+  border: 1px solid var(--chrome-edge);
+  border-radius: 12px;
+}
+.folio .tool { min-width: 36px; min-height: 36px; font-size: 18px; }
+.folio__mark, .folio__level {
+  min-width: 52px;
+  font: 650 12px/1 ui-monospace, SFMono-Regular, Menlo, monospace;
+  opacity: 0.78;
+  padding: 0 4px;
+}
 .toolbar__group, .picker { display: flex; align-items: center; gap: 2px; }
 .picker .tool { min-width: 38px; padding: 0 2px; }
 .toolbar__group + .toolbar__group { border-left: 1px solid var(--chrome-edge); padding-left: 4px; }
@@ -199,7 +223,7 @@ body {
   position: absolute;
   left: 12px;
   right: 12px;
-  bottom: calc(148px + env(safe-area-inset-bottom));
+  bottom: calc(184px + env(safe-area-inset-bottom));
   padding: 14px 14px 10px;
   background: rgba(244, 239, 224, 0.96);
   border: 1px solid var(--chrome-edge);
