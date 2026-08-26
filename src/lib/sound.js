@@ -34,8 +34,6 @@ export function unlock() {
   if (!ac) return
   unlocked = true
   if (ac.state === 'suspended') ac.resume().catch(() => {})
-  // A zero-gain blip: some iOS versions only consider the context started
-  // after a node has actually run.
   try {
     const osc = ac.createOscillator()
     const gain = ac.createGain()
@@ -71,7 +69,6 @@ function tone(ac, { freq, type = 'sine', at = 0, dur = 0.12, gain = 0.05, sweep 
   osc.frequency.setValueAtTime(freq, t0)
   if (sweep) osc.frequency.exponentialRampToValueAtTime(Math.max(1, sweep), t0 + dur)
 
-  // Short attack, exponential tail — a linear release clicks.
   amp.gain.setValueAtTime(0.0001, t0)
   amp.gain.exponentialRampToValueAtTime(gain, t0 + 0.008)
   amp.gain.exponentialRampToValueAtTime(0.0001, t0 + dur)
@@ -105,9 +102,12 @@ function noise(ac, { at = 0, dur = 0.08, gain = 0.04, freq = 1800, q = 0.7 }) {
   src.stop(t0 + dur)
 }
 
-// Seven cues. Each is a shape, not a sample.
+// Eight cues. Each is a shape, not a sample.
 const CUES = {
   tap: (ac) => tone(ac, { freq: 660, type: 'triangle', dur: 0.05, gain: 0.035 }),
+
+  // Set-square click when a figure locks to the grid / a perfect proportion.
+  snap: (ac) => tone(ac, { freq: 880, type: 'triangle', dur: 0.045, gain: 0.03 }),
 
   stroke: (ac) => noise(ac, { dur: 0.06, gain: 0.022, freq: 2400, q: 0.5 }),
 
@@ -115,7 +115,6 @@ const CUES = {
 
   redo: (ac) => tone(ac, { freq: 330, type: 'sine', dur: 0.14, gain: 0.045, sweep: 520 }),
 
-  // Two-step clear: the arm is a question, the commit is an answer.
   arm: (ac) => tone(ac, { freq: 300, type: 'square', dur: 0.07, gain: 0.028 }),
 
   clear: (ac) => {
@@ -123,7 +122,6 @@ const CUES = {
     tone(ac, { freq: 180, type: 'sine', dur: 0.22, gain: 0.04, sweep: 90 })
   },
 
-  // 410ms of chime, timed against the same duration of sweep in the animation.
   celebrate: (ac) => {
     const notes = [523.25, 659.25, 783.99, 1046.5]
     notes.forEach((freq, i) =>
