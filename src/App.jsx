@@ -10,6 +10,7 @@ import { load, usePersist } from './hooks/usePersist.js'
 import { usePWA } from './hooks/usePWA.js'
 import { DEFAULT_COLOR, DEFAULT_WIDTH } from './lib/constants.js'
 import { download, filename, toSVG } from './lib/export.js'
+import { SHAPE_FREE } from './lib/shapes.js'
 import { createTapTracker } from './lib/gestures.js'
 import { CALLIPER, RULER, defaultCalliper, defaultRuler, grabHandle, translate } from './lib/instruments.js'
 import { print } from './lib/print.js'
@@ -41,6 +42,7 @@ export default function App() {
     color: DEFAULT_COLOR,
     width: DEFAULT_WIDTH,
     pencil: true,
+    shape: SHAPE_FREE,
   })
   const [instrument, setInstrument] = useState(null)
   const [party, setParty] = useState(false)

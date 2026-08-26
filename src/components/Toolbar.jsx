@@ -1,5 +1,6 @@
 import ClearButton from './ClearButton.jsx'
 import ColorPicker from './ColorPicker.jsx'
+import ShapePicker from './ShapePicker.jsx'
 import ToolButton from './ToolButton.jsx'
 import WidthPicker from './WidthPicker.jsx'
 
@@ -21,6 +22,13 @@ export default function Toolbar({ style, setStyle, drawing, onExport, onPrint, b
         color={style.color}
         onChange={(width) => setStyle((s) => ({ ...s, width }))}
       />
+      </div>
+
+      <div className="toolbar__row toolbar__row--shapes">
+        <ShapePicker
+          value={style.shape}
+          onChange={(shape) => setStyle((s) => ({ ...s, shape }))}
+        />
       </div>
 
       <div className="toolbar__row">
