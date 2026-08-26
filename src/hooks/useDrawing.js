@@ -6,17 +6,24 @@ import { play } from '../lib/sound.js'
 let seq = 0
 const nextId = () => `s${++seq}${Date.now().toString(36)}`
 
-/**
- * All stroke state, history and derived stats.
- *
- * The live stroke bypasses React (CLAUDE.md): during a drag we mutate the
- * <path> node directly through liveRef. Pointermove fires up to 120×/sec, and
- * a setState per event means a reconcile per event — the line visibly trails
- * the finger. Committed strokes render from state normally.
- */
+const emptyPage = () => ({ strokes: [], redo: [] })
+export const MAX_PAGES = 12
+
 export function useDrawing() {
-  const [history, setHistory] = useState({ strokes: [], redo: [] })
-  const { strokes, redo: redoStack } = history
+  const [book, setBook] = useState({ pages: [emptyPage()], index: 0 })
+  const page = book.pages[book.index] || emptyPage()
+  const { strokes, redo: redoStack } = page
+
+  const setHistory = useCallback((updater) => {
+    setBook((prev) => {
+      const pages = prev.pages.slice()
+      const cur = pages[prev.index] || emptyPage()
+      const next = typeof updater === 'function' ? updater(cur) : updater
+      if (next === cur) return prev
+      pages[prev.index] = next
+      return { ...prev, pages }
+    })
+  }, [])
 
   const liveRef = useRef(null)
   const pointsRef = useRef([])
@@ -49,13 +56,10 @@ export function useDrawing() {
   const commit = useCallback(() => {
     if (!drawingRef.current) return null
     drawingRef.current = false
-
     const points = pointsRef.current
     const style = styleRef.current
     pointsRef.current = []
-
     if (!points.length || !style) return null
-
     const stroke = {
       id: nextId(),
       d: toPath(points),
@@ -65,12 +69,11 @@ export function useDrawing() {
       pencil: !!style.pencil,
       length: pathLength(points),
     }
-
     setHistory((prev) => ({ strokes: [...prev.strokes, stroke], redo: [] }))
     if (liveRef.current) liveRef.current.setAttribute('d', '')
     play('stroke')
     return stroke
-  }, [])
+  }, [setHistory])
 
   const preview = useCallback((d) => {
     if (liveRef.current) liveRef.current.setAttribute('d', d || '')
@@ -96,7 +99,7 @@ export function useDrawing() {
     if (liveRef.current) liveRef.current.setAttribute('d', '')
     play(extras.cue || 'stroke')
     return stroke
-  }, [])
+  }, [setHistory])
 
   const cancel = useCallback(() => {
     drawingRef.current = false
@@ -113,7 +116,7 @@ export function useDrawing() {
     })
     if (moved) play('undo')
     return moved
-  }, [])
+  }, [setHistory])
 
   const redo = useCallback(() => {
     let moved = null
@@ -124,7 +127,7 @@ export function useDrawing() {
     })
     if (moved) play('redo')
     return moved
-  }, [])
+  }, [setHistory])
 
   const clear = useCallback(() => {
     let cleared = []
@@ -134,19 +137,67 @@ export function useDrawing() {
     })
     play('clear')
     return cleared
-  }, [])
+  }, [setHistory])
 
   const restore = useCallback((saved) => {
+    if (saved?.pages && Array.isArray(saved.pages) && saved.pages.length) {
+      const pages = saved.pages.map((p) => ({
+        strokes: Array.isArray(p.strokes) ? p.strokes : [],
+        redo: Array.isArray(p.redo) ? p.redo : [],
+      }))
+      const index = Math.max(0, Math.min(saved.index || 0, pages.length - 1))
+      setBook({ pages, index })
+      return true
+    }
     if (!saved || !Array.isArray(saved.strokes)) return false
-    setHistory({ strokes: saved.strokes, redo: [] })
+    setBook({ pages: [{ strokes: saved.strokes, redo: [] }], index: 0 })
     return true
+  }, [])
+
+  const addPage = useCallback(() => {
+    let added = false
+    setBook((prev) => {
+      if (prev.pages.length >= MAX_PAGES) return prev
+      added = true
+      return { pages: [...prev.pages, emptyPage()], index: prev.pages.length }
+    })
+    if (added) play('flip')
+    return added
+  }, [])
+
+  const goPage = useCallback((i) => {
+    let changed = false
+    setBook((prev) => {
+      const index = Math.max(0, Math.min(i, prev.pages.length - 1))
+      if (index === prev.index) return prev
+      changed = true
+      return { ...prev, index }
+    })
+    if (changed) play('flip')
+    return changed
+  }, [])
+
+  const removePage = useCallback(() => {
+    let removed = false
+    setBook((prev) => {
+      if (prev.pages.length <= 1) {
+        if (!prev.pages[0]?.strokes.length) return prev
+        removed = true
+        return { pages: [emptyPage()], index: 0 }
+      }
+      removed = true
+      const pages = prev.pages.slice()
+      pages.splice(prev.index, 1)
+      return { pages, index: Math.min(prev.index, pages.length - 1) }
+    })
+    if (removed) play('flip')
+    return removed
   }, [])
 
   const stats = useMemo(() => {
     const total = strokes.reduce((sum, s) => sum + (s.length || 0), 0)
     const byColor = {}
     for (const s of strokes) byColor[s.color] = (byColor[s.color] || 0) + (s.length || 1)
-
     return {
       strokes: strokes.length,
       cells: Math.round(total / GRID_SIZE),
@@ -173,6 +224,13 @@ export function useDrawing() {
     redo,
     clear,
     restore,
+    addPage,
+    goPage,
+    removePage,
+    pageIndex: book.index,
+    pageCount: book.pages.length,
+    pages: book.pages,
+    canAddPage: book.pages.length < MAX_PAGES,
     canUndo: strokes.length > 0,
     canRedo: redoStack.length > 0,
   }
