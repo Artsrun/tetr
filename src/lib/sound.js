@@ -23,11 +23,6 @@ function context() {
   return ctx
 }
 
-/**
- * iOS refuses to start an AudioContext outside a user gesture, so we prime it
- * on the first pointerdown anywhere — that way the first *real* cue isn't the
- * one that's silent.
- */
 export function unlock() {
   if (unlocked) return
   const ac = context()
@@ -102,26 +97,22 @@ function noise(ac, { at = 0, dur = 0.08, gain = 0.04, freq = 1800, q = 0.7 }) {
   src.stop(t0 + dur)
 }
 
-// Eight cues. Each is a shape, not a sample.
+// Nine cues. Each is a shape, not a sample.
 const CUES = {
   tap: (ac) => tone(ac, { freq: 660, type: 'triangle', dur: 0.05, gain: 0.035 }),
-
-  // Set-square click when a figure locks to the grid / a perfect proportion.
   snap: (ac) => tone(ac, { freq: 880, type: 'triangle', dur: 0.045, gain: 0.03 }),
-
   stroke: (ac) => noise(ac, { dur: 0.06, gain: 0.022, freq: 2400, q: 0.5 }),
-
   undo: (ac) => tone(ac, { freq: 520, type: 'sine', dur: 0.14, gain: 0.045, sweep: 330 }),
-
   redo: (ac) => tone(ac, { freq: 330, type: 'sine', dur: 0.14, gain: 0.045, sweep: 520 }),
-
   arm: (ac) => tone(ac, { freq: 300, type: 'square', dur: 0.07, gain: 0.028 }),
-
   clear: (ac) => {
     noise(ac, { dur: 0.22, gain: 0.05, freq: 900, q: 0.3 })
     tone(ac, { freq: 180, type: 'sine', dur: 0.22, gain: 0.04, sweep: 90 })
   },
-
+  flip: (ac) => {
+    noise(ac, { dur: 0.09, gain: 0.03, freq: 1400, q: 0.6 })
+    tone(ac, { freq: 420, type: 'triangle', dur: 0.08, gain: 0.03, sweep: 280 })
+  },
   celebrate: (ac) => {
     const notes = [523.25, 659.25, 783.99, 1046.5]
     notes.forEach((freq, i) =>
@@ -147,7 +138,6 @@ export function play(name) {
   }
 }
 
-/** Tests only — the engine is a module singleton by design. */
 export function __reset() {
   ctx = null
   muted = false
