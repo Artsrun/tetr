@@ -3,13 +3,9 @@ import { GRID, GRID_SIZE, GRID_WIDTH, LINECAP, LINEJOIN, MARGIN_LINE, PAPER, PEN
 import { dist } from '../lib/geometry.js'
 import { snapToInstrument } from '../lib/instruments.js'
 import { PENCIL_FILTER, PENCIL_FILTER_ID, filterRef } from '../lib/pencil.js'
-import { unlock } from '../lib/sound.js'
+import { isShape, shapeFromDrag } from '../lib/shapes.js'
+import { play, unlock } from '../lib/sound.js'
 
-/**
- * touch-action: none on the SVG and overscroll-behavior: none on body — set in
- * index.css. Without both, a downward stroke scrolls the page or triggers
- * pull-to-refresh (CLAUDE.md).
- */
 const Canvas = forwardRef(function Canvas(
   { drawing, style, instrument, size, onTap, onDragInstrument },
   ref,
@@ -17,12 +13,8 @@ const Canvas = forwardRef(function Canvas(
   const svgRef = useRef(null)
   const startRef = useRef(null)
   const movedRef = useRef(0)
+  const shapeLockRef = useRef(null)
 
-  /**
-   * The single coordinate source. Ruler snapping happens here, at the source,
-   * so every consumer — drawing, gestures, instruments — sees the same point
-   * (CLAUDE.md).
-   */
   const at = useCallback(
     (e) => {
       const rect = svgRef.current?.getBoundingClientRect?.() || { left: 0, top: 0 }
@@ -37,7 +29,7 @@ const Canvas = forwardRef(function Canvas(
 
   const handleDown = useCallback(
     (e) => {
-      unlock() // First pointerdown anywhere primes audio (iOS).
+      unlock()
       if (e.button != null && e.button > 0) return
       e.preventDefault()
       svgRef.current?.setPointerCapture?.(e.pointerId)
@@ -45,8 +37,10 @@ const Canvas = forwardRef(function Canvas(
       const point = at(e)
       startRef.current = { point, time: Date.now(), id: e.pointerId }
       movedRef.current = 0
+      shapeLockRef.current = null
 
       if (onDragInstrument?.(point, 'down')) return
+      if (isShape(style.shape)) return
       drawing.begin(point, style)
     },
     [at, drawing, style, onDragInstrument],
@@ -58,21 +52,27 @@ const Canvas = forwardRef(function Canvas(
       e.preventDefault()
 
       if (onDragInstrument?.(at(e), 'move')) return
+
+      if (isShape(style.shape)) {
+        const now = at(e)
+        movedRef.current = dist(startRef.current.point, now)
+        const fig = shapeFromDrag(style.shape, startRef.current.point, now)
+        if (fig.locked && fig.locked !== shapeLockRef.current) play('snap')
+        shapeLockRef.current = fig.locked
+        drawing.preview?.(fig.d)
+        return
+      }
+
       if (!drawing.isDrawing()) return
 
-      // getCoalescedEvents replays the samples the browser batched between
-      // frames. On 120Hz displays it is the difference between a smooth curve
-      // and a faceted one (CLAUDE.md).
       const events = e.nativeEvent?.getCoalescedEvents?.() || []
       const raw = events.length ? events : [e]
-
       const points = raw.map((ev) => at(ev))
       const first = points[0]
       if (first) movedRef.current += dist(startRef.current.point, first)
-
       drawing.extend(points)
     },
-    [at, drawing, onDragInstrument],
+    [at, drawing, onDragInstrument, style.shape],
   )
 
   const handleUp = useCallback(
@@ -87,16 +87,25 @@ const Canvas = forwardRef(function Canvas(
       const point = at(e)
       const travelled = dist(start.point, point)
 
-      // A tap is a tap only if it never became a drag.
       if (travelled <= TAP_DRAG_LIMIT) {
+        drawing.preview?.('')
         const consumed = onTap?.(point)
-        // The gesture handler calls drawing.cancel() when it consumes the tap,
-        // so a completed triple-tap doesn't also commit three dots.
         if (consumed) return
+        if (isShape(style.shape)) return
+      }
+
+      if (isShape(style.shape)) {
+        const fig = shapeFromDrag(style.shape, start.point, point)
+        drawing.commitPath(fig.d, style, {
+          points: fig.points,
+          length: fig.length,
+          cue: fig.locked ? 'snap' : 'stroke',
+        })
+        return
       }
       drawing.commit()
     },
-    [at, drawing, onTap, onDragInstrument],
+    [at, drawing, onTap, onDragInstrument, style],
   )
 
   const { width, height } = size
@@ -116,8 +125,6 @@ const Canvas = forwardRef(function Canvas(
       onPointerCancel={handleUp}
     >
       <defs>
-        {/* The filter stays in <defs> even when pencil is off — adding and
-            removing it forces Safari to re-rasterize every stroke on toggle. */}
         <filter id={PENCIL_FILTER_ID} x="-8%" y="-8%" width="116%" height="116%">
           <feTurbulence
             type="fractalNoise"
@@ -161,9 +168,6 @@ const Canvas = forwardRef(function Canvas(
         />
       </g>
 
-      {/* Committed strokes render from state normally. Pencil is per-stroke —
-          strokes record how they were drawn, so switching tools doesn't
-          retroactively rewrite the page. */}
       <g className="strokes" fill="none">
         {drawing.strokes.map((s) => (
           <path
@@ -179,7 +183,6 @@ const Canvas = forwardRef(function Canvas(
         ))}
       </g>
 
-      {/* The live stroke. useDrawing writes this node's `d` directly. */}
       <path
         ref={drawing.liveRef}
         className="live"
