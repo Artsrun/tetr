@@ -61,10 +61,14 @@ export function usePersist(strokes, { enabled = true, delay = 800 } = {}) {
   useEffect(() => {
     if (!enabled) return
     const flush = () => save(latest.current)
-    window.addEventListener('pagehide', flush)
-    document.addEventListener('visibilitychange', () => {
+    const onVisibilityChange = () => {
       if (document.visibilityState === 'hidden') flush()
-    })
-    return () => window.removeEventListener('pagehide', flush)
+    }
+    window.addEventListener('pagehide', flush)
+    document.addEventListener('visibilitychange', onVisibilityChange)
+    return () => {
+      window.removeEventListener('pagehide', flush)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
+    }
   }, [enabled])
 }
