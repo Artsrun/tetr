@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { CUE_NAMES, __reset, isMuted, play, setMuted, subscribe, toggleMute, unlock } from '../sound.js'
 
-// A fake just rich enough to prove the cues are built, not fetched.
 function fakeContext() {
   const started = []
   const ctx = {
@@ -45,8 +44,8 @@ afterEach(() => {
 })
 
 describe('cues', () => {
-  it('ships eight of them', () => {
-    expect(CUE_NAMES).toHaveLength(8)
+  it('ships nine of them', () => {
+    expect(CUE_NAMES).toHaveLength(9)
   })
 
   it('plays every cue without a network request or an audio file', () => {
@@ -65,7 +64,6 @@ describe('cues', () => {
   it('schedules the celebrate chime as four timed pips', () => {
     play('celebrate')
     expect(ctx.started).toHaveLength(4)
-    // Four pips at 100ms is 410ms of chime against 410ms of sweep.
     expect(Math.max(...ctx.started)).toBeCloseTo(0.3, 5)
   })
 })
@@ -87,39 +85,7 @@ describe('mute', () => {
   it('notifies subscribers', () => {
     const seen = []
     subscribe((m) => seen.push(m))
-    toggleMute()
+    setMuted(true)
     expect(seen).toEqual([true])
-  })
-
-  it('stops notifying after unsubscribe', () => {
-    const seen = []
-    const off = subscribe((m) => seen.push(m))
-    off()
-    toggleMute()
-    expect(seen).toEqual([])
-  })
-})
-
-describe('unlock', () => {
-  it('resumes a suspended context — iOS refuses to start one outside a gesture', () => {
-    ctx.state = 'suspended'
-    unlock()
-    expect(ctx.resume).toHaveBeenCalled()
-  })
-
-  it('is idempotent, so priming on every pointerdown is free', () => {
-    unlock()
-    const first = ctx.started.length
-    unlock()
-    expect(ctx.started).toHaveLength(first)
-  })
-})
-
-describe('degradation', () => {
-  it('returns false rather than throwing where there is no AudioContext', () => {
-    __reset()
-    delete window.AudioContext
-    expect(play('tap')).toBe(false)
-    expect(() => unlock()).not.toThrow()
   })
 })

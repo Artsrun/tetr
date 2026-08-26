@@ -1,31 +1,34 @@
 import { useEffect, useRef } from 'react'
 import { STORAGE_KEY } from '../lib/constants.js'
 
-/**
- * Autosave to localStorage.
- *
- * Persistence drops `points` before writing (CLAUDE.md): only the rendered `d`
- * string is kept. Points are ~20× the size and are only needed for live
- * smoothing, which by definition isn't happening for a committed stroke.
- *
- * localStorage over IndexedDB, and pagehide over beforeunload, for the same
- * reason: iOS never fires beforeunload when an app is swiped away, and
- * synchronous writes survive abrupt termination.
- */
 export const slim = (strokes) =>
   strokes.map(({ id, d, color, width, pencil, length }) => ({
     id, d, color, width, pencil, length,
   }))
 
-export function save(strokes, key = STORAGE_KEY) {
+function toBook(input) {
+  if (Array.isArray(input)) {
+    return { index: 0, pages: [{ strokes: slim(input), redo: [] }] }
+  }
+  const pages = (input?.pages || [{ strokes: input?.strokes || [], redo: [] }]).map((p) => ({
+    strokes: slim(p.strokes || []),
+    redo: slim(p.redo || []),
+  }))
+  return {
+    index: Math.max(0, Math.min(input?.index || 0, Math.max(0, pages.length - 1))),
+    pages: pages.length ? pages : [{ strokes: [], redo: [] }],
+  }
+}
+
+export function save(input, key = STORAGE_KEY) {
   try {
+    const book = toBook(input)
     localStorage.setItem(
       key,
-      JSON.stringify({ v: 1, at: Date.now(), strokes: slim(strokes) }),
+      JSON.stringify({ v: 2, at: Date.now(), ...book }),
     )
     return true
   } catch {
-    // Quota, private mode, disabled storage — never break drawing over it.
     return false
   }
 }
@@ -35,8 +38,25 @@ export function load(key = STORAGE_KEY) {
     const raw = localStorage.getItem(key)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (!parsed || !Array.isArray(parsed.strokes)) return null
-    return parsed
+    if (!parsed || typeof parsed !== 'object') return null
+    if (Array.isArray(parsed.pages) && parsed.pages.length) {
+      const index = Math.max(0, Math.min(parsed.index || 0, parsed.pages.length - 1))
+      return {
+        v: 2,
+        at: parsed.at,
+        index,
+        pages: parsed.pages,
+        strokes: parsed.pages[index]?.strokes || [],
+      }
+    }
+    if (!Array.isArray(parsed.strokes)) return null
+    return {
+      v: 2,
+      at: parsed.at,
+      index: 0,
+      pages: [{ strokes: parsed.strokes, redo: [] }],
+      strokes: parsed.strokes,
+    }
   } catch {
     return null
   }
@@ -48,15 +68,17 @@ export function clearSaved(key = STORAGE_KEY) {
   } catch {}
 }
 
-export function usePersist(strokes, { enabled = true, delay = 800 } = {}) {
-  const latest = useRef(strokes)
-  latest.current = strokes
+export function usePersist(book, { enabled = true, delay = 800 } = {}) {
+  const latest = useRef(book)
+  latest.current = book
+  const pages = Array.isArray(book) ? book : book?.pages
+  const index = Array.isArray(book) ? 0 : book?.index
 
   useEffect(() => {
     if (!enabled) return
     const t = setTimeout(() => save(latest.current), delay)
     return () => clearTimeout(t)
-  }, [strokes, enabled, delay])
+  }, [pages, index, enabled, delay])
 
   useEffect(() => {
     if (!enabled) return
