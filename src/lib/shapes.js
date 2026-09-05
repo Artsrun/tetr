@@ -13,6 +13,7 @@ export const SHAPE_LINE = 'line'
 export const SHAPE_RECT = 'rect'
 export const SHAPE_ELLIPSE = 'ellipse'
 export const SHAPE_TRIANGLE = 'triangle'
+export const SHAPE_ERASE = 'erase'
 
 export const SHAPES = [
   { id: SHAPE_FREE, label: 'Ազատ' },
@@ -22,7 +23,14 @@ export const SHAPES = [
   { id: SHAPE_TRIANGLE, label: 'Եռանկյուն' },
 ]
 
-export const isShape = (id) => id && id !== SHAPE_FREE
+/** Geometry + rubber. Erase is a tool, not a shape — it never writes a `d`. */
+export const TOOLS = [
+  ...SHAPES,
+  { id: SHAPE_ERASE, label: 'Ռետին' },
+]
+
+export const isShape = (id) => id && id !== SHAPE_FREE && id !== SHAPE_ERASE
+export const isErase = (id) => id === SHAPE_ERASE
 
 /** Lock a near-square / near-circle when the sides are within this ratio. */
 export const PROPORTION_LOCK = 0.14
