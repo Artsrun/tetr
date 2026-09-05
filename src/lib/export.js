@@ -44,14 +44,15 @@ export function strokeMarkup(stroke) {
   )
 }
 
-export function toSVG(strokes, { width, height, grid = true, margin = false } = {}) {
+export function toSVG(strokes, { width, height, grid = true, margin = false, background = true } = {}) {
   const w = Math.round(width)
   const h = Math.round(height)
 
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">`,
-    `  <rect width="${w}" height="${h}" fill="${PAPER}" />`,
   ]
+  // background defaults on so existing callers / print / old tests stay papered.
+  if (background) parts.push(`  <rect width="${w}" height="${h}" fill="${PAPER}" />`)
   if (grid) parts.push(`  ${gridMarkup(w, h)}`)
   if (margin) {
     const x = GRID_SIZE * 3

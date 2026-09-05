@@ -3,6 +3,16 @@ import { ANGLE_DETENT, ANGLE_TOLERANCE, SNAP_DISTANCE } from './constants.js'
 
 export const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y)
 
+/** Distance from p to the closest point on segment ab. */
+export function distToSegment(p, a, b) {
+  const dx = b.x - a.x
+  const dy = b.y - a.y
+  const len2 = dx * dx + dy * dy
+  if (len2 === 0) return dist(p, a)
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2))
+  return dist(p, { x: a.x + t * dx, y: a.y + t * dy })
+}
+
 export const round = (n, places = 2) => {
   const f = 10 ** places
   return Math.round(n * f) / f

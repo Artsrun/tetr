@@ -23,6 +23,14 @@ export default function ColorPicker({ value, onChange, byColor = {} }) {
           </ToolButton>
         )
       })}
+      <label className={`swatch swatch--native ${COLORS.some((c) => c.hex === value) ? '' : 'is-active'}`.trim()}>
+        <input
+          type="color"
+          aria-label="Ընտրել գույն"
+          value={/^#[0-9a-fA-F]{6}$/.test(value) ? value : '#1f3a6e'}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      </label>
     </div>
   )
 }

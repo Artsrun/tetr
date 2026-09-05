@@ -11,6 +11,9 @@ export const MAX_PAGES = 12
 
 export function useDrawing() {
   const [book, setBook] = useState({ pages: [emptyPage()], index: 0 })
+  const [rubber, setRubber] = useState(null)
+  const bookRef = useRef(book)
+  bookRef.current = book
   const page = book.pages[book.index] || emptyPage()
   const { strokes, redo: redoStack } = page
 
@@ -29,6 +32,7 @@ export function useDrawing() {
   const pointsRef = useRef([])
   const styleRef = useRef(null)
   const drawingRef = useRef(false)
+  const eraseRef = useRef(null)
 
   const begin = useCallback((point, style) => {
     drawingRef.current = true
@@ -70,6 +74,8 @@ export function useDrawing() {
       length: pathLength(points),
     }
     setHistory((prev) => ({ strokes: [...prev.strokes, stroke], redo: [] }))
+    eraseRef.current = null
+    setRubber(null)
     if (liveRef.current) liveRef.current.setAttribute('d', '')
     play('stroke')
     return stroke
@@ -96,6 +102,8 @@ export function useDrawing() {
       length: extras.length || 0,
     }
     setHistory((prev) => ({ strokes: [...prev.strokes, stroke], redo: [] }))
+    eraseRef.current = null
+    setRubber(null)
     if (liveRef.current) liveRef.current.setAttribute('d', '')
     play(extras.cue || 'stroke')
     return stroke
@@ -108,17 +116,45 @@ export function useDrawing() {
   }, [])
 
   const undo = useCallback(() => {
+    const batch = eraseRef.current
+    if (batch?.gone?.length && batch.dir !== 'back') {
+      setHistory((prev) => {
+        const strokes = prev.strokes.slice()
+        for (const { i, s } of batch.gone) {
+          strokes.splice(Math.min(i, strokes.length), 0, s)
+        }
+        return { ...prev, strokes }
+      })
+      eraseRef.current = { ...batch, dir: 'back' }
+      setRubber(eraseRef.current)
+      play('undo')
+      return batch.gone
+    }
     let moved = null
     setHistory((prev) => {
       if (!prev.strokes.length) return prev
       moved = prev.strokes[prev.strokes.length - 1]
       return { strokes: prev.strokes.slice(0, -1), redo: [...prev.redo, moved] }
     })
+    eraseRef.current = null
+    setRubber(null)
     if (moved) play('undo')
     return moved
   }, [setHistory])
 
   const redo = useCallback(() => {
+    const batch = eraseRef.current
+    if (batch?.gone?.length && batch.dir === 'back') {
+      const ids = new Set(batch.gone.map(({ s }) => s.id))
+      setHistory((prev) => ({
+        ...prev,
+        strokes: prev.strokes.filter((s) => !ids.has(s.id)),
+      }))
+      eraseRef.current = { ...batch, dir: 'fwd' }
+      setRubber(eraseRef.current)
+      play('redo')
+      return batch.gone
+    }
     let moved = null
     setHistory((prev) => {
       if (!prev.redo.length) return prev
@@ -136,7 +172,28 @@ export function useDrawing() {
       return { strokes: [], redo: [...prev.redo, ...prev.strokes] }
     })
     play('clear')
+    eraseRef.current = null
+    setRubber(null)
     return cleared
+  }, [setHistory])
+
+  const removeIds = useCallback((ids) => {
+    const idset = new Set(ids)
+    if (!idset.size) return []
+    const cur = bookRef.current.pages[bookRef.current.index] || emptyPage()
+    const gone = []
+    cur.strokes.forEach((s, i) => {
+      if (idset.has(s.id)) gone.push({ i, s })
+    })
+    if (!gone.length) return []
+    setHistory({
+      strokes: cur.strokes.filter((s) => !idset.has(s.id)),
+      redo: cur.redo,
+    })
+    eraseRef.current = { gone, dir: 'fwd' }
+    setRubber(eraseRef.current)
+    play('undo')
+    return gone.map(({ s }) => s)
   }, [setHistory])
 
   const restore = useCallback((saved) => {
@@ -223,6 +280,7 @@ export function useDrawing() {
     undo,
     redo,
     clear,
+    removeIds,
     restore,
     addPage,
     goPage,
@@ -231,7 +289,7 @@ export function useDrawing() {
     pageCount: book.pages.length,
     pages: book.pages,
     canAddPage: book.pages.length < MAX_PAGES,
-    canUndo: strokes.length > 0,
-    canRedo: redoStack.length > 0,
+    canUndo: strokes.length > 0 || !!(rubber?.gone?.length && rubber.dir !== 'back'),
+    canRedo: redoStack.length > 0 || !!(rubber?.gone?.length && rubber.dir === 'back'),
   }
 }

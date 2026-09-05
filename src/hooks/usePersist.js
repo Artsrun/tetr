@@ -23,9 +23,16 @@ function toBook(input) {
 export function save(input, key = STORAGE_KEY) {
   try {
     const book = toBook(input)
+    // v:1 + top-level strokes: old loaders keep working. pages is additive.
     localStorage.setItem(
       key,
-      JSON.stringify({ v: 2, at: Date.now(), ...book }),
+      JSON.stringify({
+        v: 1,
+        at: Date.now(),
+        index: book.index,
+        pages: book.pages,
+        strokes: book.pages[book.index]?.strokes || [],
+      }),
     )
     return true
   } catch {
@@ -42,16 +49,16 @@ export function load(key = STORAGE_KEY) {
     if (Array.isArray(parsed.pages) && parsed.pages.length) {
       const index = Math.max(0, Math.min(parsed.index || 0, parsed.pages.length - 1))
       return {
-        v: 2,
+        v: parsed.v || 1,
         at: parsed.at,
         index,
         pages: parsed.pages,
-        strokes: parsed.pages[index]?.strokes || [],
+        strokes: parsed.pages[index]?.strokes || parsed.strokes || [],
       }
     }
     if (!Array.isArray(parsed.strokes)) return null
     return {
-      v: 2,
+      v: parsed.v || 1,
       at: parsed.at,
       index: 0,
       pages: [{ strokes: parsed.strokes, redo: [] }],

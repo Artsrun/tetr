@@ -24,13 +24,14 @@ chrome and works offline after the first load.
 | | |
 |---|---|
 | Draw | one finger |
-| Colour | tap a swatch — the ring shows how much of the drawing uses it |
+| Colour | tap a swatch — the ring shows how much of the drawing uses it · the last chip is the native picker |
 | Width | tap a dot, rendered at the actual stroke size |
+| Geometry | left-middle tab — line, box, circle, triangle, rubber. Fold it shut. |
 | Pencil / pen | ✎ ✒ — graphite grain or a clean line, per stroke |
 | Undo / Redo | ↩ ↪ · ⌘Z / ⇧⌘Z on desktop |
 | Clear | ✕ twice — and still recoverable via redo |
 | Print | ⎙ — A4 with grid · **long-press** for no grid · ⌘P |
-| Export | ↓ — timestamped SVG · ⌘S on desktop |
+| Export | ↓ — review popup · default file has no paper fill · ⌘S |
 | Sound | 🔈 in the stats bar — every action has its own cue |
 | Stats | tap the 📈 line to expand |
 

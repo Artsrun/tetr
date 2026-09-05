@@ -5,7 +5,7 @@
 // once cached the app is permanently offline-capable — which is exactly right
 // for a drawing tool. The drawing itself lives in localStorage, never here.
 
-const CACHE = 'tetr-v4'
+const CACHE = 'tetr-v5'
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-maskable.svg']
 
 self.addEventListener('install', (event) => {

@@ -1,16 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Canvas from './components/Canvas.jsx'
 import Celebration from './components/Celebration.jsx'
+import ExportDialog from './components/ExportDialog.jsx'
 import Hint from './components/Hint.jsx'
 import Instruments from './components/Instruments.jsx'
 import Stats from './components/Stats.jsx'
 import Toolbar from './components/Toolbar.jsx'
+import ToolSheet from './components/ToolSheet.jsx'
 import Wizard from './components/Wizard.jsx'
 import { useDrawing } from './hooks/useDrawing.js'
 import { load, usePersist } from './hooks/usePersist.js'
 import { usePWA } from './hooks/usePWA.js'
 import { DEFAULT_COLOR, DEFAULT_WIDTH } from './lib/constants.js'
-import { download, filename, toSVG } from './lib/export.js'
+// export serializes in ExportDialog so the review popup owns the file
 import { SHAPE_FREE } from './lib/shapes.js'
 import { ZOOM_STEP, clampView, defaultView, zoomAt } from './lib/zoom.js'
 import { createTapTracker } from './lib/gestures.js'
@@ -50,6 +52,7 @@ export default function App() {
   const [party, setParty] = useState(false)
   const [coachTick, setCoachTick] = useState(0)
   const [view, setView] = useState(defaultView)
+  const [exportOpen, setExportOpen] = useState(false)
 
   const canvasRef = useRef(null)
   const tapsRef = useRef(createTapTracker())
@@ -114,9 +117,8 @@ export default function App() {
   )
 
   const handleExport = useCallback(() => {
-    const svg = toSVG(drawing.strokes, { width: size.width, height: size.height })
-    download(svg, filename())
-  }, [drawing.strokes, size])
+    setExportOpen(true)
+  }, [])
 
   const handlePrint = useCallback(
     (grid = true) => {
@@ -189,6 +191,10 @@ export default function App() {
         onDragInstrument={handleInstrumentDrag}
       />
       <Instruments instrument={instrument} size={size} view={view} />
+      <ToolSheet
+        value={style.shape}
+        onChange={(shape) => setStyle((s) => ({ ...s, shape }))}
+      />
       <Toolbar
         style={style}
         setStyle={setStyle}
@@ -212,6 +218,13 @@ export default function App() {
       />
       <Wizard replay={coachTick} />
       <Celebration active={party} />
+      {exportOpen && (
+        <ExportDialog
+          strokes={drawing.strokes}
+          size={size}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
     </div>
   )
 }
