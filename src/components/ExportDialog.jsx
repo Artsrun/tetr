@@ -51,7 +51,7 @@ export default function ExportDialog({ strokes, size, onClose }) {
           {paper ? 'Նոթատետրի տեսքով' : 'Առանց մեր ֆոնի — թափանցիկ SVG'}
         </p>
         <div className="export__row">
-          <ToolButton label="Պակել" className="export__cancel" onPress={onClose}>Պակել</ToolButton>
+          <ToolButton label="Փակել" className="export__cancel" onPress={onClose}>Փակել</ToolButton>
           <ToolButton
             label="Ներբեռնել"
             className="export__go"

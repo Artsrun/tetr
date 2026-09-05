@@ -2,10 +2,10 @@ import { SHAPE_ELLIPSE, SHAPE_ERASE, SHAPE_FREE, SHAPE_LINE, SHAPE_RECT, SHAPE_T
 
 const COPY = {
   [SHAPE_FREE]: 'Մատով գծիր · երկու մատ՝ խոշորացում',
-  [SHAPE_LINE]: 'Մաշիր գիծ · մոտ 15°՝ կողպվում է',
-  [SHAPE_RECT]: 'Մաշիր արկղ · քառակուսին ինքն է նստում',
-  [SHAPE_ELLIPSE]: 'Մաշիր օվալ · շրջանը կողպվում է',
-  [SHAPE_TRIANGLE]: 'Մաշիր եռանկյուն · հավասարակողմը նստում է',
+  [SHAPE_LINE]: 'Քաշիր գիծ · մոտ 15°՝ կողպվում է',
+  [SHAPE_RECT]: 'Քաշիր ուղղանկյուն · քառակուսին ինքն է նստում',
+  [SHAPE_ELLIPSE]: 'Քաշիր օվալ · շրջանը կողպվում է',
+  [SHAPE_TRIANGLE]: 'Քաշիր եռանկյուն · հավասարակողմը նստում է',
   [SHAPE_ERASE]: 'Ռետին · անցիր գծի վրայով',
 }
 

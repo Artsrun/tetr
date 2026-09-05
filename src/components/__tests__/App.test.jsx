@@ -120,7 +120,8 @@ describe('export', () => {
 
     render(<App />)
     stroke([10, 10], [100, 100])
-    press('Ներբեռնել SVG')
+    press('Ներբեռնել SVG') // opens the review dialog
+    press('Ներբեռնել')     // and this writes the file
 
     expect(click).toHaveBeenCalled()
     expect(URL.createObjectURL).toHaveBeenCalled()
