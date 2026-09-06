@@ -8,13 +8,13 @@ export const STEPS = [
     id: 'draw',
     kicker: '1 / 4',
     title: 'Գծիր մատով',
-    body: 'Թղղթը վանդակավոր տետր է։ Մեկ հպումը կետ է, քաշելը՝ գիծ։',
+    body: 'Թուղթը վանդակավոր տետր է։ Մեկ հպումը կետ է, քաշելը՝ գիծ։',
   },
   {
     id: 'shape',
     kicker: '2 / 4',
     title: 'Պատկեր ընտրիր',
-    body: 'Գիծ, ուղղանկյուն, շրջան, եռանկյուն։ Մաշիր անկյունից անկյուն։',
+    body: 'Աջ եզրի լեզվակը բացում է գործիքները՝ գիծ, ուղղանկյուն, շրջան, եռանկյուն, ռետին։ Քաշիր անկյունից անկյուն։',
   },
   {
     id: 'lock',
@@ -26,7 +26,7 @@ export const STEPS = [
     id: 'ruler',
     kicker: '4 / 4',
     title: 'Երեք հպում',
-    body: 'Նույն կետին երեք անգամ՝ քանոն։ Եւս երեքը՝ կարկին։ Եւս երեքը՝ հանվում է։',
+    body: 'Նույն կետին երեք անգամ՝ քանոն։ Եվս երեքը՝ կարկին։ Եվս երեքը՝ հանվում է։',
   },
 ]
 
@@ -91,7 +91,7 @@ export default function Wizard({ replay = 0, onOpenChange }) {
       <p className="coach__body" id="coach-body">{current.body}</p>
       <div className="coach__row">
         <ToolButton label="Բաց թողնել" className="coach__skip" cue="tap" onPress={close}>
-          Բաց թողել
+          Բաց թողնել
         </ToolButton>
         <ToolButton label={last ? 'Հասկացա' : 'Հաջորդ'} className="coach__next" cue="tap" onPress={next}>
           {last ? 'Հասկացա' : 'Հաջորդ'}

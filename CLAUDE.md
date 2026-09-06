@@ -170,6 +170,17 @@ instruments sit under coordinates a phone would never put them — a triple-tap
 in the middle of the page landed on the ruler instead. The whole product is
 touch, so the test viewport is a phone.
 
+**The tool sheet is `position: absolute`, and its list needs an explicit
+`[hidden]` rule.** Every other child of `.app` is positioned, so an in-flow
+`<aside>` paints beneath the canvas and takes no pointer events — the sheet
+shipped that way once and was invisible. And `.sheet__list { display: flex }`
+outranks the UA's `[hidden] { display: none }`, so the panel never closes
+unless the stylesheet opts back out.
+
+**Picking a tool closes the sheet.** The panel sits over the paper; the next
+thing anyone does after choosing a shape is draw, and a picker you have to
+dismiss by hand eats that first stroke.
+
 **`getCoalescedEvents` in the move handler.** Replays samples the browser
 batched between frames. On 120Hz displays it's the difference between a smooth
 curve and a faceted one.
@@ -181,7 +192,7 @@ npm test          # once
 npm run test:watch
 ```
 
-207 tests. Keep it that way — logic lives in `lib/` and `hooks/` precisely so it
+227 tests. Keep it that way — logic lives in `lib/` and `hooks/` precisely so it
 can be tested without rendering.
 
 Note: tests dispatch `pointerdown`, not `click`, because that's what the

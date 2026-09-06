@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { SHAPE_ELLIPSE, SHAPE_ERASE, SHAPE_FREE, SHAPE_LINE, SHAPE_RECT, SHAPE_TRIANGLE, TOOLS } from '../lib/shapes.js'
 import ToolButton from './ToolButton.jsx'
 
@@ -38,19 +38,41 @@ const ICONS = {
 
 export default function ToolSheet({ value, onChange }) {
   const [open, setOpen] = useState(false)
+  const ref = useRef(null)
   const current = TOOLS.find((t) => t.id === value) || TOOLS[0]
 
+  // The sheet floats over the paper, so it closes the way a real drawer does:
+  // Escape, or a touch anywhere else. Without this, the first thing someone
+  // does after picking a tool — draw — is swallowed by the open panel.
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e) => {
+      if (!ref.current?.contains(e.target)) setOpen(false)
+    }
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onDown)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onDown)
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
   return (
-    <aside className={`sheet ${open ? 'is-open' : ''}`} aria-label="Գործիքատուփ">
+    <aside ref={ref} className={`sheet ${open ? 'is-open' : ''}`} aria-label="Գործիքատուփ">
       <ToolButton
-        label={open ? 'Պակել գործիքները' : 'Գործիքներ'}
+        label={open ? 'Փակել գործիքները' : 'Գործիքներ'}
         className="sheet__tab"
-        active={open}
+        // Armed whenever a tool other than freehand is on, so the tab itself
+        // says which mode the next stroke is in.
+        active={open || value !== SHAPE_FREE}
         aria-expanded={open}
         onPress={() => setOpen((v) => !v)}
       >
         {ICONS[current.id]}
-        <span className="sheet__chevron" aria-hidden="true">{open ? '‹' : '›'}</span>
+        <span className="sheet__chevron" aria-hidden="true">{open ? '›' : '‹'}</span>
       </ToolButton>
       <div className="sheet__list" hidden={!open} role="group" aria-label="Պատկեր">
         {TOOLS.map((t) => (
@@ -61,6 +83,7 @@ export default function ToolSheet({ value, onChange }) {
             className="sheet__tool"
             onPress={() => {
               onChange(value === t.id && t.id !== SHAPE_FREE && t.id !== SHAPE_ERASE ? SHAPE_FREE : t.id)
+              setOpen(false) // Pick and draw. Two taps to get back to the paper is one too many.
             }}
           >
             {ICONS[t.id]}

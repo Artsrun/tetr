@@ -21,7 +21,7 @@ export const COLORS = [
   { id: 'black', hex: INK.black, label: 'Սև' },
   { id: 'red', hex: INK.red, label: 'Կարմիր' },
   { id: 'green', hex: INK.green, label: 'Կանաչ' },
-  { id: 'violet', hex: INK.violet, label: 'Մանուշակ' },
+  { id: 'violet', hex: INK.violet, label: 'Մանուշակագույն' },
 ]
 
 export const WIDTHS = [1.4, 2.2, 3.4, 5.2]
