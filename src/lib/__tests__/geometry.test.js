@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   angleOf, bounds, centroid, dedupe, dist, pathLength,
-  projectToLine, round, snapAngle, toPath,
+  round, snapAngle, toPath,
 } from '../geometry.js'
 
 describe('dist', () => {
@@ -90,41 +90,6 @@ describe('bounds', () => {
   it('returns null when there is nothing drawn', () => {
     expect(bounds([])).toBeNull()
     expect(bounds([{ points: [] }])).toBeNull()
-  })
-})
-
-describe('projectToLine', () => {
-  const a = { x: 0, y: 0 }
-  const b = { x: 100, y: 0 }
-
-  it('snaps a nearby point onto the line', () => {
-    expect(projectToLine({ x: 50, y: 6 }, a, b)).toEqual({ x: 50, y: 0 })
-  })
-
-  it('leaves a far point untouched — no snapping across the page', () => {
-    const p = { x: 50, y: 400 }
-    expect(projectToLine(p, a, b)).toBe(p)
-  })
-
-  it('projects onto the infinite line, not the segment', () => {
-    // Well past b: a ruler you can only draw along the middle of is worse
-    // than a real one.
-    expect(projectToLine({ x: 500, y: 5 }, a, b)).toEqual({ x: 500, y: 0 })
-  })
-
-  it('projects before a as readily as after b', () => {
-    expect(projectToLine({ x: -80, y: 4 }, a, b)).toEqual({ x: -80, y: 0 })
-  })
-
-  it('returns the point for a degenerate zero-length ruler', () => {
-    const p = { x: 3, y: 3 }
-    expect(projectToLine(p, a, a)).toBe(p)
-  })
-
-  it('honours a custom snap distance', () => {
-    const p = { x: 10, y: 30 }
-    expect(projectToLine(p, a, b, 40)).toEqual({ x: 10, y: 0 })
-    expect(projectToLine(p, a, b, 10)).toBe(p)
   })
 })
 

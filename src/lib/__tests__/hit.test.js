@@ -16,6 +16,19 @@ describe('flattenPath', () => {
     expect(pts.some((p) => p.x === 10 && p.y === 8)).toBe(true)
   })
 
+  it('follows the sweep flag: sweep 0 dips below the chord, 1 rises above', () => {
+    const below = flattenPath('M 0 0 A 50 50 0 0 0 100 0')
+    const above = flattenPath('M 0 0 A 50 50 0 0 1 100 0')
+    expect(Math.max(...below.map((p) => p.y))).toBeGreaterThan(40)
+    expect(Math.min(...above.map((p) => p.y))).toBeLessThan(-40)
+  })
+
+  it('walks a whole ellipse, both halves', () => {
+    const pts = flattenPath('M 0 0 A 50 20 0 1 0 100 0 A 50 20 0 1 0 0 0')
+    expect(Math.max(...pts.map((p) => p.y))).toBeGreaterThan(15)
+    expect(Math.min(...pts.map((p) => p.y))).toBeLessThan(-15)
+  })
+
   it('returns empty for empty d', () => {
     expect(flattenPath('')).toEqual([])
     expect(flattenPath(null)).toEqual([])

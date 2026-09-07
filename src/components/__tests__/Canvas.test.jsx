@@ -3,7 +3,6 @@ import { describe, expect, it, vi } from 'vitest'
 import Canvas from '../Canvas.jsx'
 import { GRID_SIZE, PENCIL_OPACITY } from '../../lib/constants.js'
 import { PENCIL_FILTER_ID } from '../../lib/pencil.js'
-import { RULER } from '../../lib/instruments.js'
 
 const SIZE = { width: 390, height: 700 }
 const STYLE = { color: '#1f3a6e', width: 2.2, pencil: false }
@@ -28,7 +27,7 @@ const paper = () => document.querySelector('.paper')
 
 const setup = (props = {}) => {
   const drawing = props.drawing || stubDrawing()
-  render(<Canvas drawing={drawing} style={STYLE} size={SIZE} instrument={null} {...props} />)
+  render(<Canvas drawing={drawing} style={STYLE} size={SIZE} {...props} />)
   return drawing
 }
 
@@ -186,29 +185,5 @@ describe('taps and gestures', () => {
     paper().dispatchEvent(pointer('pointerdown', 40, 40))
     paper().dispatchEvent(pointer('pointerup', 40, 40))
     expect(drawing.commit).toHaveBeenCalled()
-  })
-})
-
-describe('ruler snapping happens at the coordinate source', () => {
-  const ruler = { kind: RULER, a: { x: 0, y: 100 }, b: { x: 390, y: 100 } }
-
-  it('snaps the point every consumer sees, not just the drawn one', () => {
-    const drawing = setup({ instrument: ruler })
-    paper().dispatchEvent(pointer('pointerdown', 150, 106))
-    expect(drawing.begin).toHaveBeenCalledWith({ x: 150, y: 100 }, STYLE)
-  })
-
-  it('leaves freehand alone away from the ruler', () => {
-    const drawing = setup({ instrument: ruler })
-    paper().dispatchEvent(pointer('pointerdown', 150, 400))
-    expect(drawing.begin).toHaveBeenCalledWith({ x: 150, y: 400 }, STYLE)
-  })
-
-  it('hands snapped points to the gesture handler too', () => {
-    const onTap = vi.fn(() => false)
-    setup({ instrument: ruler, onTap })
-    paper().dispatchEvent(pointer('pointerdown', 200, 104))
-    paper().dispatchEvent(pointer('pointerup', 200, 104))
-    expect(onTap).toHaveBeenCalledWith({ x: 200, y: 100 })
   })
 })

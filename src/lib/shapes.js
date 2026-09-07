@@ -7,6 +7,15 @@
 
 import { GRID_SIZE } from './constants.js'
 import { dist, pathLength, round, snapAngle } from './geometry.js'
+import {
+  SHAPE_CONE, SHAPE_CUBE, SHAPE_CYLINDER, SHAPE_PYRAMID, SHAPE_SPHERE,
+  SOLIDS, isSolid, solidFromBox,
+} from './solids.js'
+
+export {
+  SHAPE_CONE, SHAPE_CUBE, SHAPE_CYLINDER, SHAPE_PYRAMID, SHAPE_SPHERE,
+  SOLIDS, isSolid,
+}
 
 export const SHAPE_FREE = 'free'
 export const SHAPE_LINE = 'line'
@@ -15,7 +24,7 @@ export const SHAPE_ELLIPSE = 'ellipse'
 export const SHAPE_TRIANGLE = 'triangle'
 export const SHAPE_ERASE = 'erase'
 
-export const SHAPES = [
+export const FLATS = [
   { id: SHAPE_FREE, label: 'Ազատ' },
   { id: SHAPE_LINE, label: 'Գիծ' },
   { id: SHAPE_RECT, label: 'Ուղղանկյուն' },
@@ -23,10 +32,17 @@ export const SHAPES = [
   { id: SHAPE_TRIANGLE, label: 'Եռանկյուն' },
 ]
 
+export const ERASER = { id: SHAPE_ERASE, label: 'Ռետին' }
+
+export const SHAPES = [...FLATS, ...SOLIDS]
+
 /** Geometry + rubber. Erase is a tool, not a shape — it never writes a `d`. */
-export const TOOLS = [
-  ...SHAPES,
-  { id: SHAPE_ERASE, label: 'Ռետին' },
+export const TOOLS = [...SHAPES, ERASER]
+
+/** The sheet is a drawer with two shelves; eleven tools in one column is a wall. */
+export const TOOL_GROUPS = [
+  { id: 'flat', label: 'Հարթ', tools: [...FLATS, ERASER] },
+  { id: 'solid', label: 'Ծավալ', tools: SOLIDS },
 ]
 
 export const isShape = (id) => id && id !== SHAPE_FREE && id !== SHAPE_ERASE
@@ -120,6 +136,21 @@ export function shapeFromDrag(kind, rawStart, rawEnd, { grid = GRID_SIZE } = {})
   const start = snapToGrid(rawStart, grid)
   let end = snapToGrid(rawEnd, grid)
   let locked = null
+
+  if (isSolid(kind)) {
+    // Only the cube asks for a square face — a cylinder drawn as tall as it is
+    // wide is a legitimate cylinder, and locking it would fight the drag.
+    if (kind === SHAPE_CUBE) {
+      const sq = lockSquare(start, end)
+      if (sq.locked) {
+        end = snapToGrid(sq.end, grid)
+        locked = 'cube'
+      }
+    }
+    const built = solidFromBox(kind, box(start, end), grid)
+    if (!built) return { d: '', points: [], length: 0, locked: null }
+    return { ...built, locked }
+  }
 
   if (kind === SHAPE_LINE) {
     const angled = snapAngle(start, end)

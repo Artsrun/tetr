@@ -1,40 +1,28 @@
-// Ruler and calliper math — the triple-tap easter egg.
+// The calliper — the triple-tap easter egg. It measures; it does not guide.
 //
-// Instruments render in a sibling <svg>, not the paper (CLAUDE.md): a ruler
+// There was a ruler here too, and the drawing surface snapped to its edge.
+// It went: the shape tools already lay a straight line on the grid, and a
+// ruler that silently bends a freehand stroke is the app fighting the finger.
+// What is left is the one instrument that only reads the page back to you.
+//
+// Instruments render in a sibling <svg>, not the paper (CLAUDE.md): a calliper
 // that ends up in someone's Figma file is a bug.
 
-import { GRID_SIZE, SNAP_DISTANCE } from './constants.js'
-import { angleOf, dist, projectToLine } from './geometry.js'
+import { GRID_SIZE } from './constants.js'
+import { angleOf, dist } from './geometry.js'
 
-export const RULER = 'ruler'
 export const CALLIPER = 'calliper'
 
-/** A ruler laid across the middle of the page, at rest. */
-export function defaultRuler(width, height) {
-  const len = Math.min(width * 0.8, 520)
-  const cx = width / 2
-  const cy = height / 2
-  return {
-    kind: RULER,
-    a: { x: cx - len / 2, y: cy },
-    b: { x: cx + len / 2, y: cy },
-  }
-}
-
+/** A calliper lying across the middle of the page, at rest. */
 export function defaultCalliper(width, height) {
+  const span = Math.min(width * 0.42, 160)
   const cx = width / 2
   const cy = height / 2
   return {
     kind: CALLIPER,
-    a: { x: cx - 80, y: cy },
-    b: { x: cx + 80, y: cy },
+    a: { x: cx - span / 2, y: cy },
+    b: { x: cx + span / 2, y: cy },
   }
-}
-
-/** Ruler snapping happens at the coordinate source — see Canvas.at(). */
-export function snapToInstrument(point, instrument, snapDistance = SNAP_DISTANCE) {
-  if (!instrument || instrument.kind !== RULER) return point
-  return projectToLine(point, instrument.a, instrument.b, snapDistance)
 }
 
 export function measure(instrument) {

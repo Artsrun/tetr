@@ -316,10 +316,14 @@ body {
 .sheet__tab.is-active { background: rgba(255, 255, 255, 0.78); }
 .sheet__chevron { font-size: 13px; line-height: 1; opacity: 0.5; }
 
+/* Eleven named rows do not fit beside the paper on a 390px phone, so the
+   drawer is two shelves of icons instead — the tab shows the armed tool and
+   the hint line spells it out in words the moment one is picked. */
 .sheet__list {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 8px;
   padding: 6px;
   margin-right: -1px;
   background: rgba(244, 239, 224, 0.96);
@@ -331,13 +335,24 @@ body {
 /* A class selector beats the UA's [hidden] { display: none }, so the panel
    has to opt back out explicitly or it never closes. */
 .sheet__list[hidden] { display: none; }
-.sheet__tool {
-  justify-content: flex-start;
-  min-height: 40px;
-  padding: 0 10px;
-  gap: 9px;
+.sheet__shelf {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
-.sheet__name { font-size: 14px; white-space: nowrap; }
+.sheet__shelf-name {
+  margin: 0 0 2px;
+  text-align: center;
+  font-size: 9.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  opacity: 0.5;
+}
+.sheet__tool {
+  min-width: 40px;
+  min-height: 38px;
+  padding: 0;
+}
 
 /* Inline SVG with no intrinsic size falls back to 300×150 and blows the
    button apart — every shape icon needs an explicit box. */

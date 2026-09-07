@@ -53,6 +53,86 @@ describe('drawing', () => {
   })
 })
 
+describe('the shape tools', () => {
+  const pick = (label) => {
+    press('Գործիքներ')
+    press(label)
+  }
+
+  it('draws a flat figure from the sheet', () => {
+    render(<App />)
+    pick('Ուղղանկյուն')
+    stroke([48, 48], [168, 144])
+    expect(committed()).toHaveLength(1)
+    expect(committed()[0].getAttribute('d')).toMatch(/^M .* Z$/)
+  })
+
+  it('draws a solid, and it is ordinary ink — one stroke, undoable', () => {
+    render(<App />)
+    pick('Խորանարդ')
+    stroke([48, 48], [168, 168])
+    const d = committed()[0].getAttribute('d')
+    expect(committed()).toHaveLength(1)
+    expect((d.match(/M/g) || []).length).toBe(3) // front face, top, right side
+    press('Հետ')
+    expect(committed()).toHaveLength(0)
+  })
+
+  it('draws every solid the sheet offers', () => {
+    render(<App />)
+    for (const label of ['Խորանարդ', 'Գլան', 'Կոն', 'Գունդ', 'Բուրգ']) {
+      pick(label)
+      stroke([48, 48], [168, 168])
+    }
+    expect(committed()).toHaveLength(5)
+  })
+
+  it('rubs out what the finger crosses, and does not draw doing it', () => {
+    render(<App />)
+    pick('Ուղղանկյուն')
+    stroke([48, 48], [168, 144])
+    expect(committed()).toHaveLength(1)
+    pick('Ռետին')
+    stroke([40, 48], [180, 48]) // straight along the top edge
+    expect(committed()).toHaveLength(0)
+  })
+
+  it('takes a whole rub back in one undo', () => {
+    render(<App />)
+    pick('Ուղղանկյուն')
+    stroke([48, 48], [168, 144])
+    stroke([48, 240], [168, 336])
+    pick('Ռետին')
+    fireEvent(paper(), pointer('pointerdown', 40, 48))
+    fireEvent(paper(), pointer('pointermove', 180, 48))
+    fireEvent(paper(), pointer('pointermove', 180, 240))
+    fireEvent(paper(), pointer('pointermove', 40, 240))
+    fireEvent(paper(), pointer('pointerup', 40, 240))
+    expect(committed()).toHaveLength(0)
+    press('Հետ')
+    expect(committed()).toHaveLength(2)
+  })
+
+  it('leaves ink the rubber never touched alone', () => {
+    render(<App />)
+    pick('Ուղղանկյուն')
+    stroke([48, 48], [168, 144])
+    stroke([48, 480], [168, 576])
+    pick('Ռետին')
+    stroke([40, 48], [180, 48])
+    expect(committed()).toHaveLength(1)
+  })
+
+  it('goes back to freehand when the armed tool is pressed again', () => {
+    render(<App />)
+    pick('Գունդ')
+    pick('Գունդ')
+    stroke([20, 20], [120, 200])
+    // Freehand, so the ends are where the finger was — not on the grid.
+    expect(committed()[0].getAttribute('d')).toBe('M 20 20 L 120 200')
+  })
+})
+
 describe('undo, redo and clear', () => {
   it('undoes', () => {
     render(<App />)
@@ -130,7 +210,7 @@ describe('export', () => {
 })
 
 describe('the triple-tap easter egg', () => {
-  it('brings out the ruler on the third tap', () => {
+  it('brings out the calliper on the third tap', () => {
     render(<App />)
     tap(100, 100)
     tap(104, 98)
@@ -162,15 +242,13 @@ describe('the triple-tap easter egg', () => {
     expect(document.querySelector('.instruments')).toBeNull()
   })
 
-  it('cycles ruler → calliper → away', () => {
+  it('toggles the calliper away with another three', () => {
     render(<App />)
     const triple = (x, y) => { tap(x, y); tap(x + 2, y); tap(x, y + 2) }
 
     triple(100, 100)
     expect(document.querySelector('.instrument__body')).toBeTruthy()
     triple(300, 400)
-    expect(document.querySelector('.instrument__body')).toBeTruthy()
-    triple(150, 500)
     expect(document.querySelector('.instruments')).toBeNull()
   })
 

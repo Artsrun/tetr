@@ -46,8 +46,7 @@ export const TAP_DRAG_LIMIT = 6 // beyond this a tap is a drag
 // Clear
 export const CLEAR_ARM_MS = 3000
 
-// Instruments
-export const SNAP_DISTANCE = 18 // px from the ruler edge before a point snaps
+// Angles
 export const ANGLE_DETENT = 15 // degrees
 export const ANGLE_TOLERANCE = 4 // engage only within this of a detent
 
