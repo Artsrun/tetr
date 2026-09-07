@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import { describe, expect, it, vi } from 'vitest'
 import ToolSheet from '../ToolSheet.jsx'
-import { SHAPE_FREE, SHAPE_RECT, TOOLS } from '../../lib/shapes.js'
+import { SHAPE_FREE, SHAPE_RECT, SHAPE_SPHERE, TOOLS, TOOL_GROUPS } from '../../lib/shapes.js'
 
 const press = (el) => fireEvent(el, new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
 const tab = () => screen.getByLabelText(/Գործիքներ|Փակել գործիքները/)
@@ -18,6 +18,20 @@ describe('ToolSheet', () => {
     render(<ToolSheet value={SHAPE_FREE} onChange={() => {}} />)
     press(tab())
     TOOLS.forEach((t) => expect(screen.getByLabelText(t.label)).toBeTruthy())
+  })
+
+  it('shelves the flat tools apart from the solids', () => {
+    render(<ToolSheet value={SHAPE_FREE} onChange={() => {}} />)
+    press(tab())
+    TOOL_GROUPS.forEach((g) => expect(screen.getByText(g.label)).toBeTruthy())
+  })
+
+  it('picks a solid too', () => {
+    const onChange = vi.fn()
+    render(<ToolSheet value={SHAPE_FREE} onChange={onChange} />)
+    press(tab())
+    press(screen.getByLabelText('Գունդ'))
+    expect(onChange).toHaveBeenCalledWith(SHAPE_SPHERE)
   })
 
   it('picks a tool and gets out of the way', () => {

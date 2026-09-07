@@ -26,7 +26,8 @@ chrome and works offline after the first load.
 | Draw | one finger |
 | Colour | tap a swatch — the ring shows how much of the drawing uses it · the last chip is the native picker |
 | Width | tap a dot, rendered at the actual stroke size |
-| Geometry | left-middle tab — line, box, circle, triangle, rubber. Fold it shut. |
+| Geometry | right-edge tab — two shelves: flat (line, box, circle, triangle, rubber) and solid (cube, cylinder, cone, sphere, pyramid). Fold it shut. |
+| Solids | drag a box — the figure is drawn in cabinet projection, depth on the grid, and commits as ordinary ink you can undo, erase and export |
 | Pencil / pen | ✎ ✒ — graphite grain or a clean line, per stroke |
 | Undo / Redo | ↩ ↪ · ⌘Z / ⇧⌘Z on desktop |
 | Clear | ✕ twice — and still recoverable via redo |
@@ -38,7 +39,7 @@ chrome and works offline after the first load.
 ## Stack
 
 React 19, Vite 6, Vitest 3, plain CSS. Zero runtime deps beyond React.
-~71KB gzipped.
+~76KB gzipped.
 
 **Installable PWA.** Add to Home Screen and it launches without browser chrome,
 works fully offline, and restores your drawing if the OS kills it.
@@ -48,7 +49,7 @@ oscillators and filtered noise — nothing licensed, nothing fetched, zero bytes
 shipped. Works on a plane.
 
 ```bash
-npm test          # 207 tests
+npm test          # 298 tests
 npm run build
 ```
 

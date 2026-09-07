@@ -1,5 +1,7 @@
-import { CALLIPER, measure } from '../lib/instruments.js'
+import { measure } from '../lib/instruments.js'
 import { defaultView, viewBox as toViewBox } from '../lib/zoom.js'
+
+const CALLIPER_HALF = 14
 
 export default function Instruments({ instrument, size, view = defaultView() }) {
   if (!instrument) return null
@@ -20,9 +22,9 @@ export default function Instruments({ instrument, size, view = defaultView() }) 
         <rect
           className="instrument__body"
           x={mid.x - Math.hypot(b.x - a.x, b.y - a.y) / 2}
-          y={mid.y - (instrument.kind === CALLIPER ? 14 : 26)}
+          y={mid.y - CALLIPER_HALF}
           width={Math.hypot(b.x - a.x, b.y - a.y)}
-          height={instrument.kind === CALLIPER ? 28 : 52}
+          height={CALLIPER_HALF * 2}
           rx="3"
         />
       </g>

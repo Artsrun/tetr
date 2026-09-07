@@ -1,5 +1,5 @@
 // Pure math. No DOM, no React — everything here is tested directly.
-import { ANGLE_DETENT, ANGLE_TOLERANCE, SNAP_DISTANCE } from './constants.js'
+import { ANGLE_DETENT, ANGLE_TOLERANCE } from './constants.js'
 
 export const dist = (a, b) => Math.hypot(b.x - a.x, b.y - a.y)
 
@@ -80,24 +80,6 @@ export function bounds(strokes) {
   }
   if (minX === Infinity) return null
   return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
-}
-
-/**
- * Project a point onto the ruler's *infinite* line, not the segment
- * (CLAUDE.md — a ruler you can only draw along the middle of is worse than a
- * real one). Returns the original point when it is further than SNAP_DISTANCE.
- */
-export function projectToLine(point, a, b, snapDistance = SNAP_DISTANCE) {
-  const vx = b.x - a.x
-  const vy = b.y - a.y
-  const len2 = vx * vx + vy * vy
-  if (len2 === 0) return point
-
-  const t = ((point.x - a.x) * vx + (point.y - a.y) * vy) / len2
-  // Rounded: the projection is float-noisy (199.99999999999997), and a snapped
-  // point is meant to be exact — it feeds drawing, gestures and the export.
-  const proj = { x: round(a.x + t * vx, 4), y: round(a.y + t * vy, 4) }
-  return dist(point, proj) <= snapDistance ? proj : point
 }
 
 /**

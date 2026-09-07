@@ -1,14 +1,14 @@
 import { forwardRef, useCallback, useImperativeHandle, useRef } from 'react'
 import { GRID, GRID_SIZE, GRID_WIDTH, LINECAP, LINEJOIN, MARGIN_LINE, PAPER, PENCIL_OPACITY, PEN_OPACITY, TAP_DRAG_LIMIT } from '../lib/constants.js'
 import { dist } from '../lib/geometry.js'
-import { snapToInstrument } from '../lib/instruments.js'
+import { idsHitAt } from '../lib/hit.js'
 import { PENCIL_FILTER, PENCIL_FILTER_ID, filterRef } from '../lib/pencil.js'
-import { isShape, shapeFromDrag } from '../lib/shapes.js'
+import { isErase, isShape, shapeFromDrag } from '../lib/shapes.js'
 import { play, unlock } from '../lib/sound.js'
 import { defaultView, pinchToView, screenToWorld, viewBox as toViewBox } from '../lib/zoom.js'
 
 const Canvas = forwardRef(function Canvas(
-  { drawing, style, instrument, size, view = defaultView(), onViewChange, onTap, onDragInstrument },
+  { drawing, style, size, view = defaultView(), onViewChange, onTap, onDragInstrument },
   ref,
 ) {
   const svgRef = useRef(null)
@@ -26,16 +26,29 @@ const Canvas = forwardRef(function Canvas(
     }
   }, [size])
 
+  // One coordinate source. Drawing, gestures and the calliper all read the
+  // same point, so nothing downstream has to know about the view transform.
   const at = useCallback(
-    (e) => {
-      let point = screenToWorld(screenOf(e), view, size)
-      point = snapToInstrument(point, instrument)
-      return point
-    },
-    [instrument, screenOf, view, size],
+    (e) => screenToWorld(screenOf(e), view, size),
+    [screenOf, view, size],
   )
 
   useImperativeHandle(ref, () => ({ at, node: () => svgRef.current }), [at])
+
+  // The rubber writes nothing. It lifts whatever ink the finger passes over,
+  // and the whole pass is one undo — see useDrawing.removeIds.
+  const rub = useCallback(
+    (points, extend) => {
+      const ids = []
+      for (const p of points) {
+        for (const id of idsHitAt(drawing.strokes, p)) {
+          if (!ids.includes(id)) ids.push(id)
+        }
+      }
+      if (ids.length) drawing.removeIds(ids, { extend })
+    },
+    [drawing],
+  )
 
   const handleDown = useCallback(
     (e) => {
@@ -61,10 +74,14 @@ const Canvas = forwardRef(function Canvas(
       shapeLockRef.current = null
 
       if (onDragInstrument?.(point, 'down')) return
+      if (isErase(style.shape)) {
+        rub([point], false)
+        return
+      }
       if (isShape(style.shape)) return
       drawing.begin(point, style)
     },
-    [at, drawing, style, onDragInstrument, screenOf, view],
+    [at, drawing, style, onDragInstrument, rub, screenOf, view],
   )
 
   const handleMove = useCallback(
@@ -87,6 +104,11 @@ const Canvas = forwardRef(function Canvas(
       }
       if (!startRef.current) return
       if (onDragInstrument?.(at(e), 'move')) return
+      if (isErase(style.shape)) {
+        const events = e.nativeEvent?.getCoalescedEvents?.() || []
+        rub((events.length ? events : [e]).map((ev) => at(ev)), true)
+        return
+      }
       if (isShape(style.shape)) {
         const now = at(e)
         movedRef.current = dist(startRef.current.point, now)
@@ -104,7 +126,7 @@ const Canvas = forwardRef(function Canvas(
       if (first) movedRef.current += dist(startRef.current.point, first)
       drawing.extend(points)
     },
-    [at, drawing, onDragInstrument, style.shape, screenOf, size, onViewChange],
+    [at, drawing, onDragInstrument, rub, style.shape, screenOf, size, onViewChange],
   )
 
   const handleUp = useCallback(
@@ -119,6 +141,11 @@ const Canvas = forwardRef(function Canvas(
       if (onDragInstrument?.(at(e), 'up')) return
       const point = at(e)
       const travelled = dist(start.point, point)
+      if (isErase(style.shape)) {
+        // A rubber tap still counts towards the triple-tap, but never commits.
+        if (travelled <= TAP_DRAG_LIMIT) onTap?.(point)
+        return
+      }
       if (travelled <= TAP_DRAG_LIMIT) {
         drawing.preview?.('')
         const consumed = onTap?.(point)
@@ -136,7 +163,7 @@ const Canvas = forwardRef(function Canvas(
       }
       drawing.commit()
     },
-    [at, drawing, onTap, onDragInstrument, style],
+    [at, drawing, onTap, onDragInstrument, rub, style],
   )
 
   const { width, height } = size

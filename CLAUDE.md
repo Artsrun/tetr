@@ -27,7 +27,9 @@ src/
   hooks/usePWA      service worker, install prompt, offline state
   hooks/usePersist  autosave to localStorage
   lib/pencil.js     graphite texture — SVG filter, not WebGL
-  lib/instruments   ruler/calliper math (the triple-tap easter egg)
+  lib/instruments   calliper math (the triple-tap easter egg)
+  lib/solids.js     cabinet projection — the five school solids
+  lib/hit.js        path flattening + hit-testing, so the rubber can lift ink
   lib/gestures.js   triple-tap tracker — strict on purpose, see below
   lib/constants.js  design tokens, mirrored in index.css
   hooks/useDrawing  all stroke state, history, derived stats
@@ -127,21 +129,22 @@ it forces Safari to re-rasterize every stroke on toggle.
 switching tools doesn't retroactively rewrite the page — same as a real desk.
 
 **Triple-tap is deliberately strict.** Three taps, 600ms, within 30px, none of
-them a drag. This shares a surface with drawing and three dots in one spot is a
-legitimate thing to draw. A false negative costs one repeated gesture; a false
+them a drag. Three more put the calliper away. This shares a surface with
+drawing, and three dots in one spot is a legitimate thing to draw. A false negative costs one repeated gesture; a false
 positive interrupts someone mid-drawing. `drawing.cancel()` exists so a
 completed gesture doesn't also commit three dots.
 
-**Ruler snapping happens in `Canvas.at()`, at the coordinate source.** Every
-consumer — drawing, gestures, instruments — then sees the same point.
-
-**The ruler projects onto the infinite line, not the segment.** A ruler you can
-only draw along the middle of is worse than a real one.
+**There is no ruler, and `Canvas.at()` snaps nothing.** It went on purpose: the
+shape tools already lay a straight line on the grid, and an instrument that
+silently bends a freehand stroke is the app fighting the finger. `at()` is now
+one coordinate source and nothing more — drawing, gestures and the calliper all
+read the same point. The calliper stayed because it only reads the page back to
+you; it never moves a stroke.
 
 **Angle snapping only engages within 4° of a 15° detent.** Constant snapping
 makes freehand impossible.
 
-**Instruments render in a sibling `<svg>`, not the paper.** A ruler that ends
+**Instruments render in a sibling `<svg>`, not the paper.** A calliper that ends
 up in someone's Figma file is a bug.
 
 **Strokes and redo are one state object, not two.** `useDrawing` keeps
@@ -157,9 +160,38 @@ atomic.
 the SPA fallback, and fails with an MIME-type error. `baseURI` is also what
 keeps registration correct from a subdirectory.
 
-**`projectToLine` rounds its result.** The projection is float-noisy
-(`199.99999999999997`), and a snapped point is meant to be exact — it feeds
-drawing, gestures and the export alike.
+**Solids are ink, like every other shape.** Cube, cylinder, cone, sphere and
+pyramid commit as one stroke `d` with several subpaths, so undo, export, print
+and persistence never learn that anything is 3D. Nothing in the app models a
+solid; `solids.js` only knows how to draw one.
+
+**Cabinet projection, not isometric.** Depth runs up-right at 45° at half
+scale, snapped to the grid, so the back face lands on intersections instead of
+floating between them — the projection every school textbook draws by hand, and
+the only one the notebook can hold.
+
+**Hidden edges are not drawn at all.** A dashed back edge would need a second
+stroke style, and a stroke carries one dash pattern; the cube drops the corner
+behind the solid and the pyramid drops the back-left one, which is what a
+textbook figure looks like anyway.
+
+**A solid's `points` walk its own outline.** The rubber hit-tests `points` as
+one polyline (`hit.js`), so the vertices are listed in the order the pen visits
+them and the curved solids sample their ellipses. List them any other way and
+the rubber starts catching diagonals that were never drawn.
+
+**`flattenPath` honours the arc sweep flag.** Without it the near half of a
+cylinder's base flattens as the far half, and the rubber hunts for ink 30px
+away from where it is.
+
+**The rubber lifts ink; it never writes.** `Canvas` calls `removeIds` straight
+from the move handler, and passes `extend` so one pass is one undo. Undo puts a
+batch back newest-first, because each index was taken against the array as it
+stood at that moment.
+
+**The tool sheet is two shelves of icons, not eleven named rows.** Names beside
+eleven tools leave a 390px phone with no paper. The tab shows the armed tool and
+the hint line spells it out in words the moment one is picked.
 
 **The toolbar is two explicit rows, not `flex-wrap`.** Wrapping put sixteen
 controls on three rows and took a quarter of the page. The paper wins every
@@ -167,7 +199,7 @@ argument with the chrome.
 
 **Tests run in a 390×700 window.** jsdom defaults to 1024×768, where the
 instruments sit under coordinates a phone would never put them — a triple-tap
-in the middle of the page landed on the ruler instead. The whole product is
+in the middle of the page landed on the instrument instead. The whole product is
 touch, so the test viewport is a phone.
 
 **The tool sheet is `position: absolute`, and its list needs an explicit
@@ -192,7 +224,7 @@ npm test          # once
 npm run test:watch
 ```
 
-227 tests. Keep it that way — logic lives in `lib/` and `hooks/` precisely so it
+298 tests. Keep it that way — logic lives in `lib/` and `hooks/` precisely so it
 can be tested without rendering.
 
 Note: tests dispatch `pointerdown`, not `click`, because that's what the

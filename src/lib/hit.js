@@ -13,14 +13,18 @@ function cubic(p0, p1, p2, p3, t) {
   }
 }
 
-function arcPoints(from, rx, ry, x1, y1, steps = 10) {
+// Every arc this app writes spans half an ellipse, so the centre is the middle
+// of the chord. The sweep flag picks which half — without it a solid's near
+// base edge flattens as the far one, and the rubber hunts for ink 30px away.
+function arcPoints(from, rx, ry, x1, y1, sweep = 1, steps = 10) {
   const pts = []
   const cx = (from.x + x1) / 2
   const cy = (from.y + y1) / 2
   const a0 = Math.atan2(from.y - cy, from.x - cx)
   const a1 = Math.atan2(y1 - cy, x1 - cx)
   let delta = a1 - a0
-  if (delta <= 0) delta += Math.PI * 2
+  if (sweep && delta <= 0) delta += Math.PI * 2
+  if (!sweep && delta >= 0) delta -= Math.PI * 2
   const arx = Math.abs(rx) || Math.hypot(x1 - from.x, y1 - from.y) / 2
   const ary = Math.abs(ry) || arx
   for (let i = 1; i <= steps; i++) {
@@ -79,11 +83,13 @@ export function flattenPath(d) {
         cur = p3
       } else if (C === 'A') {
         const rx = take(), ry = take()
-        take(); take(); take()
+        take() // x-axis-rotation
+        take() // large-arc-flag: every arc here is a half, so it says nothing
+        const sweep = take()
         const x = take(), y = take()
         if (y == null) return
         const dest = rel ? { x: cur.x + x, y: cur.y + y } : { x, y }
-        out.push(...arcPoints(cur, rx, ry, dest.x, dest.y))
+        out.push(...arcPoints(cur, rx, ry, dest.x, dest.y, sweep))
         cur = dest
       } else {
         n.length = 0

@@ -120,7 +120,11 @@ export function useDrawing() {
     if (batch?.gone?.length && batch.dir !== 'back') {
       setHistory((prev) => {
         const strokes = prev.strokes.slice()
-        for (const { i, s } of batch.gone) {
+        // Newest first: each index was taken against the array as it stood at
+        // that moment, so undoing them in reverse puts every stroke back where
+        // it was — including a rub that swallowed several in one pass.
+        for (let k = batch.gone.length - 1; k >= 0; k--) {
+          const { i, s } = batch.gone[k]
           strokes.splice(Math.min(i, strokes.length), 0, s)
         }
         return { ...prev, strokes }
@@ -177,7 +181,8 @@ export function useDrawing() {
     return cleared
   }, [setHistory])
 
-  const removeIds = useCallback((ids) => {
+  /** `extend` folds this into the rub in progress, so one pass is one undo. */
+  const removeIds = useCallback((ids, { extend = false } = {}) => {
     const idset = new Set(ids)
     if (!idset.size) return []
     const cur = bookRef.current.pages[bookRef.current.index] || emptyPage()
@@ -190,7 +195,8 @@ export function useDrawing() {
       strokes: cur.strokes.filter((s) => !idset.has(s.id)),
       redo: cur.redo,
     })
-    eraseRef.current = { gone, dir: 'fwd' }
+    const carried = extend && eraseRef.current?.dir === 'fwd' ? eraseRef.current.gone : []
+    eraseRef.current = { gone: [...carried, ...gone], dir: 'fwd' }
     setRubber(eraseRef.current)
     play('undo')
     return gone.map(({ s }) => s)

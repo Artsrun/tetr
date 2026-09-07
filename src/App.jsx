@@ -16,7 +16,7 @@ import { DEFAULT_COLOR, DEFAULT_WIDTH } from './lib/constants.js'
 import { SHAPE_FREE } from './lib/shapes.js'
 import { ZOOM_STEP, clampView, defaultView, zoomAt } from './lib/zoom.js'
 import { createTapTracker } from './lib/gestures.js'
-import { CALLIPER, RULER, defaultCalliper, defaultRuler, grabHandle, translate } from './lib/instruments.js'
+import { defaultCalliper, grabHandle, translate } from './lib/instruments.js'
 import { print } from './lib/print.js'
 import { play } from './lib/sound.js'
 
@@ -78,11 +78,7 @@ export default function App() {
     (point) => {
       if (!tapsRef.current.push(point)) return false
       drawing.cancel()
-      setInstrument((cur) => {
-        if (!cur) return defaultRuler(size.width, size.height)
-        if (cur.kind === RULER) return defaultCalliper(size.width, size.height)
-        return null
-      })
+      setInstrument((cur) => (cur ? null : defaultCalliper(size.width, size.height)))
       celebrate()
       return true
     },
@@ -183,7 +179,6 @@ export default function App() {
         ref={canvasRef}
         drawing={drawing}
         style={style}
-        instrument={instrument}
         size={size}
         view={view}
         onViewChange={(next) => setView(clampView(next, size))}
@@ -229,6 +224,8 @@ export default function App() {
   )
 }
 
+const CALLIPER_REACH = 16 // half the body, plus a thumb's worth of slack
+
 function isNearBody(point, instrument) {
   const { a, b } = instrument
   const len = Math.hypot(b.x - a.x, b.y - a.y)
@@ -237,6 +234,5 @@ function isNearBody(point, instrument) {
   if (t < 0 || t > 1) return false
   const px = a.x + t * (b.x - a.x)
   const py = a.y + t * (b.y - a.y)
-  const reach = instrument.kind === CALLIPER ? 16 : 28
-  return Math.hypot(point.x - px, point.y - py) <= reach
+  return Math.hypot(point.x - px, point.y - py) <= CALLIPER_REACH
 }
