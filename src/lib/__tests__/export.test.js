@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { GRID, PAPER, PENCIL_OPACITY, PEN_OPACITY } from '../constants.js'
-import { filename, gridMarkup, strokeMarkup, toSVG } from '../export.js'
+import { cropFrame, filename, gridMarkup, strokeMarkup, toSVG } from '../export.js'
 
 const stroke = (over = {}) => ({
   id: 's1', d: 'M 0 0 L 10 10', color: '#1f3a6e', width: 2.2, pencil: false, ...over,
@@ -103,4 +103,42 @@ describe('filename', () => {
     expect(filename(new Date(2026, 0, 5, 4, 7))).toBe('tetr-2026-01-05-0407.svg')
   })
   it('ends in .svg', () => expect(filename()).toMatch(/\.svg$/))
+})
+
+describe('cropFrame', () => {
+  it('pads ink by half the stroke width plus a gutter', () => {
+    const box = cropFrame([stroke({ d: 'M 10 10 L 30 10', width: 4 })])
+    expect(box.x).toBe(10 - 2 - 8)
+    expect(box.y).toBe(10 - 2 - 8)
+    expect(box.width).toBe(20 + 20)
+    expect(box.height).toBe(20)
+  })
+  it('reads a persisted stroke that has only d, no points', () => {
+    const box = cropFrame([{ d: 'M 0 0 L 8 0', width: 2 }])
+    expect(box).not.toBeNull()
+    expect(box.width).toBeGreaterThan(8)
+  })
+  it('is null when the page is blank', () => {
+    expect(cropFrame([])).toBeNull()
+    expect(cropFrame([{ d: '', width: 2 }])).toBeNull()
+  })
+})
+
+describe('toSVG crop', () => {
+  it('shrinks the viewBox to the ink frame', () => {
+    const svg = toSVG([stroke({ d: 'M 100 80 L 140 80', width: 2 })], {
+      width: 800, height: 1200, grid: false, background: false, crop: true,
+    })
+    expect(svg).toMatch(/viewBox="91 71 58 18"/)
+    expect(svg).not.toContain('viewBox="0 0 800 1200"')
+  })
+  it('does not dump a full-page grid into a cropped file', () => {
+    const full = toSVG([stroke({ d: 'M 10 10 L 20 10' })], { width: 800, height: 600, crop: false })
+    const cut = toSVG([stroke({ d: 'M 10 10 L 20 10' })], { width: 800, height: 600, crop: true })
+    expect((cut.match(/<line /g) || []).length).toBeLessThan((full.match(/<line /g) || []).length)
+  })
+  it('falls back to the page when there is nothing to crop', () => {
+    const svg = toSVG([], { width: 200, height: 300, crop: true, grid: false })
+    expect(svg).toContain('viewBox="0 0 200 300"')
+  })
 })
