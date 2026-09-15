@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { GRID, PAPER, PENCIL_OPACITY, PEN_OPACITY } from '../constants.js'
-import { cropFrame, filename, gridMarkup, strokeMarkup, toSVG } from '../export.js'
+import { GRID, PAPER, PENCIL_OPACITY, PEN_OPACITY, WHITE } from '../constants.js'
+import { cropFrame, filename, gridMarkup, strokeMarkup, svgSize, toSVG } from '../export.js'
 
 const stroke = (over = {}) => ({
   id: 's1', d: 'M 0 0 L 10 10', color: '#1f3a6e', width: 2.2, pencil: false, ...over,
@@ -14,8 +14,6 @@ describe('toSVG', () => {
   })
 
   it('writes literal colours, never CSS variables', () => {
-    // Cloning the live DOM would carry var(--grid) into the file, which
-    // resolves to nothing outside the page — Figma opens a blank rectangle.
     const svg = toSVG([stroke()], { width: 100, height: 100 })
     expect(svg).not.toContain('var(')
     expect(svg).toContain(PAPER)
@@ -79,7 +77,7 @@ describe('toSVG', () => {
 describe('gridMarkup', () => {
   it('spaces lines one cell apart', () => {
     const g = gridMarkup(100, 50, 25)
-    expect(g.match(/<line /g)).toHaveLength(3 + 1) // x at 25,50,75 · y at 25
+    expect(g.match(/<line /g)).toHaveLength(3 + 1)
   })
   it('draws nothing inside a single cell', () => {
     expect(gridMarkup(10, 10, 24).match(/<line /g)).toBeNull()
@@ -103,6 +101,9 @@ describe('filename', () => {
     expect(filename(new Date(2026, 0, 5, 4, 7))).toBe('tetr-2026-01-05-0407.svg')
   })
   it('ends in .svg', () => expect(filename()).toMatch(/\.svg$/))
+  it('can take an extension', () => {
+    expect(filename(new Date(2026, 7, 24, 14, 32), 'png')).toBe('tetr-2026-08-24-1432.png')
+  })
 })
 
 describe('cropFrame', () => {
@@ -140,5 +141,23 @@ describe('toSVG crop', () => {
   it('falls back to the page when there is nothing to crop', () => {
     const svg = toSVG([], { width: 200, height: 300, crop: true, grid: false })
     expect(svg).toContain('viewBox="0 0 200 300"')
+  })
+})
+
+describe('toSVG fill', () => {
+  it('paints a custom paper colour', () => {
+    const svg = toSVG([], { width: 20, height: 20, grid: false, fill: WHITE })
+    expect(svg).toContain(`fill="${WHITE}"`)
+    expect(svg).not.toContain(PAPER)
+  })
+  it('omits the rect when fill is null', () => {
+    const svg = toSVG([], { width: 20, height: 20, grid: false, fill: null })
+    expect(svg).not.toContain('<rect')
+  })
+})
+
+describe('svgSize', () => {
+  it('reads the serialized attributes', () => {
+    expect(svgSize(toSVG([], { width: 120, height: 80, grid: false }))).toEqual({ width: 120, height: 80 })
   })
 })
