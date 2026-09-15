@@ -4,6 +4,8 @@ import Celebration from './components/Celebration.jsx'
 import ExportDialog from './components/ExportDialog.jsx'
 import Hint from './components/Hint.jsx'
 import Instruments from './components/Instruments.jsx'
+import Lessons from './components/Lessons.jsx'
+import Masthead from './components/Masthead.jsx'
 import Stats from './components/Stats.jsx'
 import Toolbar from './components/Toolbar.jsx'
 import ToolSheet from './components/ToolSheet.jsx'
@@ -12,9 +14,11 @@ import { useDrawing } from './hooks/useDrawing.js'
 import { load, usePersist } from './hooks/usePersist.js'
 import { usePWA } from './hooks/usePWA.js'
 import { DEFAULT_COLOR, DEFAULT_WIDTH } from './lib/constants.js'
+import { applyEdition, currentEdition } from './lib/edition.js'
 // export serializes in ExportDialog so the review popup owns the file
 import { SHAPE_FREE } from './lib/shapes.js'
-import { ZOOM_STEP, clampView, defaultView, zoomAt } from './lib/zoom.js'
+import { activeOrigin, isSpread, sheets, worldOf } from './lib/spread.js'
+import { MIN_ZOOM, ZOOM_STEP, clampView, defaultView, zoomAt } from './lib/zoom.js'
 import { createTapTracker } from './lib/gestures.js'
 import { defaultCalliper, grabHandle, translate } from './lib/instruments.js'
 import { print } from './lib/print.js'
@@ -41,6 +45,7 @@ export default function App() {
   const size = useViewport()
   const drawing = useDrawing()
   const pwa = usePWA()
+  const edition = useMemo(currentEdition, [])
 
   const [style, setStyle] = useState({
     color: DEFAULT_COLOR,
@@ -51,8 +56,26 @@ export default function App() {
   const [instrument, setInstrument] = useState(null)
   const [party, setParty] = useState(false)
   const [coachTick, setCoachTick] = useState(0)
-  const [view, setView] = useState(defaultView)
+  // v2 opens the notebook flat — two sheets — because it is the edition about
+  // measuring across a spread. v1 opens on one page, the way it always has.
+  const [view, setView] = useState(() =>
+    (edition.spreadOnOpen ? { scale: MIN_ZOOM, x: 0, y: 0 } : defaultView()))
   const [exportOpen, setExportOpen] = useState(false)
+  const [lessonsOpen, setLessonsOpen] = useState(false)
+
+  useEffect(() => {
+    applyEdition(edition)
+  }, [edition])
+
+  // Two sheets and the binding when zoomed out, one sheet otherwise. Passed as
+  // a function of scale because the answer depends on the scale being clamped.
+  const world = useCallback((scale) => worldOf(size, isSpread(scale)), [size])
+  const originX = activeOrigin(sheets({
+    scale: view.scale,
+    index: drawing.pageIndex,
+    count: drawing.pageCount,
+    width: size.width,
+  }))
 
   const canvasRef = useRef(null)
   const tapsRef = useRef(createTapTracker())
@@ -129,8 +152,9 @@ export default function App() {
       size,
       { x: size.width / 2, y: size.height / 2 },
       cur.scale + delta,
+      world,
     ))
-  }, [size])
+  }, [size, world])
 
   useEffect(() => {
     const onKey = (e) => {
@@ -162,6 +186,7 @@ export default function App() {
         bumpZoom(-ZOOM_STEP)
       }
       if (e.key === '0') setView(defaultView())
+      if (e.key === 'g') setLessonsOpen((v) => !v)
     }
     window.addEventListener('keydown', onKey)
     window.addEventListener('keydown', onPlain)
@@ -181,11 +206,14 @@ export default function App() {
         style={style}
         size={size}
         view={view}
-        onViewChange={(next) => setView(clampView(next, size))}
+        onViewChange={(next) => setView(clampView(next, size, world))}
         onTap={handleTap}
         onDragInstrument={handleInstrumentDrag}
+        onPickPage={drawing.goPage}
+        onAddPage={drawing.addPage}
       />
-      <Instruments instrument={instrument} size={size} view={view} />
+      <Instruments instrument={instrument} size={size} view={view} originX={originX} />
+      <Masthead edition={edition} />
       <ToolSheet
         value={style.shape}
         onChange={(shape) => setStyle((s) => ({ ...s, shape }))}
@@ -198,6 +226,7 @@ export default function App() {
         view={view}
         onExport={handleExport}
         onPrint={handlePrint}
+        onLessons={() => setLessonsOpen(true)}
         onPrevPage={() => drawing.goPage(drawing.pageIndex - 1)}
         onNextPage={() => drawing.goPage(drawing.pageIndex + 1)}
         onAddPage={drawing.addPage}
@@ -211,8 +240,11 @@ export default function App() {
         offline={pwa.offline}
         onHelp={() => setCoachTick((n) => n + 1)}
       />
-      <Wizard replay={coachTick} />
+      <Wizard replay={coachTick} edition={edition} />
       <Celebration active={party} />
+      {lessonsOpen && (
+        <Lessons instrument={instrument} onClose={() => setLessonsOpen(false)} />
+      )}
       {exportOpen && (
         <ExportDialog
           strokes={drawing.strokes}

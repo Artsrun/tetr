@@ -3,50 +3,61 @@ import ToolButton from './ToolButton.jsx'
 
 export const WIZARD_KEY = 'tetr:wizard:v1'
 
-export const STEPS = [
+/** Each edition gets its own key: a new cover deserves its own first run. */
+export const wizardKey = (edition) =>
+  !edition || edition.id === 'v1' ? WIZARD_KEY : `tetr:wizard:${edition.id}`
+
+const RAW_STEPS = [
   {
     id: 'draw',
-    kicker: '1 / 4',
     title: 'Գծիր մատով',
-    body: 'Թուղթը վանդակավոր տետր է։ Մեկ հպումը կետ է, քաշելը՝ գիծ։',
+    body: 'Թուղթը վանդակավոր տետր է։ Մեկ հպումը կետ է, քաշելը՝ գիծ։ Մատիտը խշշում է, գրիչը՝ սահում։',
   },
   {
     id: 'shape',
-    kicker: '2 / 4',
     title: 'Պատկեր ընտրիր',
     body: 'Աջ եզրի լեզվակը բացում է գործիքները՝ հարթ պատկերներ, ռետին, և ծավալայիններ՝ խորանարդ, գլան, կոն, գունդ, բուրգ։ Քաշիր անկյունից անկյուն։',
   },
   {
     id: 'lock',
-    kicker: '3 / 4',
     title: 'Վանդակը բռնում է',
     body: 'Գրեթե քառակուսի կամ շրջան՝ կողպվում է։ Կլիկը նշանակում է՝ նստեց։',
   },
   {
+    id: 'spread',
+    title: 'Բացիր տետրը',
+    body: 'Փոքրացրու մինչև 50%՝ երկու էջ միասին։ Հարևան էջին հպվելը թերթում է, դատարկ թերթին՝ ավելացնում։',
+  },
+  {
     id: 'calliper',
-    kicker: '4 / 4',
     title: 'Երեք հպում',
-    body: 'Նույն կետին երեք անգամ՝ կարկին։ Չափում է վանդակ ու աստիճան։ Եվս երեքը՝ հանվում է։',
+    body: 'Նույն կետին երեք անգամ՝ կարկին։ Չափում է վանդակ, միլիմետր ու աստիճան, և անունն էլ ասում՝ սուր, ուղիղ թե բութ։ 📐 կոճակը բացում է բանաձևերը։',
   },
 ]
 
-function readDone() {
+export const STEPS = RAW_STEPS.map((s, i) => ({
+  ...s,
+  kicker: `${i + 1} / ${RAW_STEPS.length}`,
+}))
+
+function readDone(key) {
   try {
-    return localStorage.getItem(WIZARD_KEY) === 'done'
+    return localStorage.getItem(key) === 'done'
   } catch {
     return false
   }
 }
 
-function writeDone() {
+function writeDone(key) {
   try {
-    localStorage.setItem(WIZARD_KEY, 'done')
+    localStorage.setItem(key, 'done')
   } catch {}
 }
 
-export default function Wizard({ replay = 0, onOpenChange }) {
+export default function Wizard({ replay = 0, onOpenChange, edition }) {
+  const key = wizardKey(edition)
   const [step, setStep] = useState(0)
-  const [open, setOpen] = useState(() => !readDone())
+  const [open, setOpen] = useState(() => !readDone(key))
 
   useEffect(() => {
     if (!replay) return
@@ -59,20 +70,20 @@ export default function Wizard({ replay = 0, onOpenChange }) {
   }, [open, onOpenChange])
 
   const close = useCallback(() => {
-    writeDone()
+    writeDone(key)
     setOpen(false)
-  }, [])
+  }, [key])
 
   const next = useCallback(() => {
     setStep((i) => {
       if (i >= STEPS.length - 1) {
-        writeDone()
+        writeDone(key)
         setOpen(false)
         return i
       }
       return i + 1
     })
-  }, [])
+  }, [key])
 
   if (!open) return null
 
@@ -88,6 +99,7 @@ export default function Wizard({ replay = 0, onOpenChange }) {
       </div>
       <p className="coach__kicker">{current.kicker}</p>
       <h2 className="coach__title">{current.title}</h2>
+      {step === 0 && edition?.tagline && <p className="coach__tagline">{edition.tagline}</p>}
       <p className="coach__body" id="coach-body">{current.body}</p>
       <div className="coach__row">
         <ToolButton label="Բաց թողնել" className="coach__skip" cue="tap" onPress={close}>

@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useRef, useState } from 'react'
 import { GRID_SIZE, PENCIL_OPACITY, PEN_OPACITY } from '../lib/constants.js'
 import { pathLength, toPath } from '../lib/geometry.js'
-import { play } from '../lib/sound.js'
+import { play, startStroke } from '../lib/sound.js'
 
 let seq = 0
 const nextId = () => `s${++seq}${Date.now().toString(36)}`
+
+const now = () =>
+  typeof performance !== 'undefined' && performance.now ? performance.now() : Date.now()
 
 const emptyPage = () => ({ strokes: [], redo: [] })
 export const MAX_PAGES = 12
@@ -33,11 +36,26 @@ export function useDrawing() {
   const styleRef = useRef(null)
   const drawingRef = useRef(false)
   const eraseRef = useRef(null)
+  const voiceRef = useRef(null)
+  const paceRef = useRef(null)
+
+  /** Silence whatever is sounding. Safe to call when nothing is. */
+  const hush = useCallback(() => {
+    voiceRef.current?.stop()
+    voiceRef.current = null
+    paceRef.current = null
+  }, [])
 
   const begin = useCallback((point, style) => {
     drawingRef.current = true
     pointsRef.current = [point]
     styleRef.current = style
+    // The stroke sounds while it is drawn, not when it lands. One voice per
+    // stroke — see sound.js; it is generated noise, never a sample.
+    hush()
+    voiceRef.current = startStroke(style)
+    paceRef.current = { point, at: now() }
+    voiceRef.current.move(0)
     if (liveRef.current) {
       liveRef.current.setAttribute('d', toPath(pointsRef.current))
       liveRef.current.setAttribute('stroke', style.color)
@@ -47,7 +65,7 @@ export function useDrawing() {
         String(style.pencil ? PENCIL_OPACITY : PEN_OPACITY),
       )
     }
-  }, [])
+  }, [hush])
 
   const extend = useCallback((points) => {
     if (!drawingRef.current) return
@@ -55,9 +73,21 @@ export function useDrawing() {
     if (!list.length) return
     pointsRef.current.push(...list)
     if (liveRef.current) liveRef.current.setAttribute('d', toPath(pointsRef.current))
+
+    // px per ms across this batch. A slow curve whispers, a fast diagonal
+    // scratches — the voice rides the hand rather than the event rate.
+    const pace = paceRef.current
+    if (pace && voiceRef.current) {
+      const last = list[list.length - 1]
+      const t = now()
+      const ms = Math.max(8, t - pace.at)
+      voiceRef.current.move(pathLength([pace.point, ...list]) / ms)
+      paceRef.current = { point: last, at: t }
+    }
   }, [])
 
   const commit = useCallback(() => {
+    hush()
     if (!drawingRef.current) return null
     drawingRef.current = false
     const points = pointsRef.current
@@ -79,13 +109,14 @@ export function useDrawing() {
     if (liveRef.current) liveRef.current.setAttribute('d', '')
     play('stroke')
     return stroke
-  }, [setHistory])
+  }, [setHistory, hush])
 
   const preview = useCallback((d) => {
     if (liveRef.current) liveRef.current.setAttribute('d', d || '')
   }, [])
 
   const commitPath = useCallback((d, style, extras = {}) => {
+    hush()
     drawingRef.current = false
     pointsRef.current = []
     if (!d || !style) {
@@ -107,13 +138,14 @@ export function useDrawing() {
     if (liveRef.current) liveRef.current.setAttribute('d', '')
     play(extras.cue || 'stroke')
     return stroke
-  }, [setHistory])
+  }, [setHistory, hush])
 
   const cancel = useCallback(() => {
+    hush()
     drawingRef.current = false
     pointsRef.current = []
     if (liveRef.current) liveRef.current.setAttribute('d', '')
-  }, [])
+  }, [hush])
 
   const undo = useCallback(() => {
     const batch = eraseRef.current

@@ -5,10 +5,67 @@ import { idsHitAt } from '../lib/hit.js'
 import { PENCIL_FILTER, PENCIL_FILTER_ID, filterRef } from '../lib/pencil.js'
 import { isErase, isShape, shapeFromDrag } from '../lib/shapes.js'
 import { play, unlock } from '../lib/sound.js'
+import { activeOrigin, isSpread, sheetAtX, sheets, worldOf } from '../lib/spread.js'
 import { defaultView, pinchToView, screenToWorld, viewBox as toViewBox } from '../lib/zoom.js'
 
+/** One page's worth of paper: the fill, the grid, the margin. */
+function Sheet({ width, height, dim = false, ghost = false }) {
+  const cols = Math.ceil(width / GRID_SIZE)
+  const rows = Math.ceil(height / GRID_SIZE)
+  return (
+    <g className={`leaf__paper ${dim ? 'is-dim' : ''} ${ghost ? 'is-ghost' : ''}`.trim()}>
+      <rect width={width} height={height} fill={PAPER} />
+      <g className="grid" shapeRendering="crispEdges" aria-hidden="true">
+        {Array.from({ length: cols }, (_, i) => (
+          <line
+            key={`v${i}`}
+            x1={(i + 1) * GRID_SIZE} y1={0}
+            x2={(i + 1) * GRID_SIZE} y2={height}
+            stroke={GRID} strokeWidth={GRID_WIDTH}
+          />
+        ))}
+        {Array.from({ length: rows }, (_, i) => (
+          <line
+            key={`h${i}`}
+            x1={0} y1={(i + 1) * GRID_SIZE}
+            x2={width} y2={(i + 1) * GRID_SIZE}
+            stroke={GRID} strokeWidth={GRID_WIDTH}
+          />
+        ))}
+        <line
+          x1={GRID_SIZE * 3} y1={0} x2={GRID_SIZE * 3} y2={height}
+          stroke={MARGIN_LINE} strokeWidth={1}
+        />
+      </g>
+      {ghost && (
+        <text className="leaf__plus" x={width / 2} y={height / 2} textAnchor="middle">+</text>
+      )}
+    </g>
+  )
+}
+
+const Ink = ({ strokes }) => (
+  <g className="strokes" fill="none">
+    {strokes.map((s) => (
+      <path
+        key={s.id}
+        d={s.d}
+        stroke={s.color}
+        strokeWidth={s.width}
+        strokeLinecap={LINECAP}
+        strokeLinejoin={LINEJOIN}
+        strokeOpacity={s.pencil ? PENCIL_OPACITY : PEN_OPACITY}
+        filter={filterRef(s.pencil)}
+      />
+    ))}
+  </g>
+)
+
 const Canvas = forwardRef(function Canvas(
-  { drawing, style, size, view = defaultView(), onViewChange, onTap, onDragInstrument },
+  {
+    drawing, style, size, view = defaultView(), onViewChange, onTap, onDragInstrument,
+    onPickPage, onAddPage,
+  },
   ref,
 ) {
   const svgRef = useRef(null)
@@ -18,19 +75,40 @@ const Canvas = forwardRef(function Canvas(
   const pointersRef = useRef(new Map())
   const pinchRef = useRef(null)
 
-  const screenOf = useCallback((e) => {
-    const rect = svgRef.current?.getBoundingClientRect?.() || { left: 0, top: 0, width: size.width, height: size.height }
-    return {
-      x: ((e.clientX - rect.left) / (rect.width || 1)) * size.width,
-      y: ((e.clientY - rect.top) / (rect.height || 1)) * size.height,
-    }
-  }, [size])
+  const { width, height } = size
+  const spread = isSpread(view.scale)
+  const layout = sheets({
+    scale: view.scale,
+    index: drawing.pageIndex,
+    count: drawing.pageCount,
+    width,
+  })
+  // Strokes are stored page-local. A spread only shifts a sheet's origin, so
+  // the offset is subtracted back out before any point leaves this component.
+  const ox = activeOrigin(layout)
 
-  // One coordinate source. Drawing, gestures and the calliper all read the
-  // same point, so nothing downstream has to know about the view transform.
-  const at = useCallback(
+  const screenOf = useCallback((e) => {
+    const rect = svgRef.current?.getBoundingClientRect?.() || { left: 0, top: 0, width, height }
+    return {
+      x: ((e.clientX - rect.left) / (rect.width || 1)) * width,
+      y: ((e.clientY - rect.top) / (rect.height || 1)) * height,
+    }
+  }, [width, height])
+
+  const worldAt = useCallback(
     (e) => screenToWorld(screenOf(e), view, size),
     [screenOf, view, size],
+  )
+
+  // One coordinate source. Drawing, gestures and the calliper all read the
+  // same point, so nothing downstream has to know about the view transform
+  // or which side of the spread the active page is sitting on.
+  const at = useCallback(
+    (e) => {
+      const p = worldAt(e)
+      return ox ? { x: p.x - ox, y: p.y } : p
+    },
+    [worldAt, ox],
   )
 
   useImperativeHandle(ref, () => ({ at, node: () => svgRef.current }), [at])
@@ -73,6 +151,17 @@ const Canvas = forwardRef(function Canvas(
       movedRef.current = 0
       shapeLockRef.current = null
 
+      // On a spread the other sheet is a page, not a canvas. Touching it turns
+      // to it — the same thing your hand does with a real notebook — rather
+      // than dropping ink on a page you are not writing on.
+      if (spread) {
+        const hit = sheetAtX(layout, worldAt(e).x, width)
+        if (!hit || !hit.active) {
+          startRef.current = { ...startRef.current, sheet: hit || null }
+          return
+        }
+      }
+
       if (onDragInstrument?.(point, 'down')) return
       if (isErase(style.shape)) {
         rub([point], false)
@@ -81,7 +170,7 @@ const Canvas = forwardRef(function Canvas(
       if (isShape(style.shape)) return
       drawing.begin(point, style)
     },
-    [at, drawing, style, onDragInstrument, rub, screenOf, view],
+    [at, worldAt, drawing, style, onDragInstrument, rub, screenOf, view, spread, layout, width],
   )
 
   const handleMove = useCallback(
@@ -99,10 +188,12 @@ const Canvas = forwardRef(function Canvas(
           pts[0],
           pts[1],
           size,
+          (scale) => worldOf(size, isSpread(scale)),
         ))
         return
       }
       if (!startRef.current) return
+      if (startRef.current.sheet !== undefined) return
       if (onDragInstrument?.(at(e), 'move')) return
       if (isErase(style.shape)) {
         const events = e.nativeEvent?.getCoalescedEvents?.() || []
@@ -138,9 +229,19 @@ const Canvas = forwardRef(function Canvas(
       startRef.current = null
       svgRef.current?.releasePointerCapture?.(e.pointerId)
       if (!start || pinched) return
-      if (onDragInstrument?.(at(e), 'up')) return
       const point = at(e)
       const travelled = dist(start.point, point)
+
+      if (start.sheet !== undefined) {
+        // A tap on the facing sheet turns to it; the ghost sheet adds it.
+        if (travelled <= TAP_DRAG_LIMIT && start.sheet) {
+          if (start.sheet.ghost) onAddPage?.()
+          else onPickPage?.(start.sheet.index)
+        }
+        return
+      }
+
+      if (onDragInstrument?.(point, 'up')) return
       if (isErase(style.shape)) {
         // A rubber tap still counts towards the triple-tap, but never commits.
         if (travelled <= TAP_DRAG_LIMIT) onTap?.(point)
@@ -163,17 +264,13 @@ const Canvas = forwardRef(function Canvas(
       }
       drawing.commit()
     },
-    [at, drawing, onTap, onDragInstrument, rub, style],
+    [at, drawing, onTap, onDragInstrument, style, onPickPage, onAddPage],
   )
-
-  const { width, height } = size
-  const cols = Math.ceil(width / GRID_SIZE)
-  const rows = Math.ceil(height / GRID_SIZE)
 
   return (
     <svg
       ref={svgRef}
-      className="paper"
+      className={`paper ${spread ? 'is-spread' : ''}`.trim()}
       width={width}
       height={height}
       viewBox={toViewBox(view, size)}
@@ -200,55 +297,32 @@ const Canvas = forwardRef(function Canvas(
           />
         </filter>
       </defs>
-      <rect width={width} height={height} fill={PAPER} />
-      <g className="grid" shapeRendering="crispEdges" aria-hidden="true">
-        {Array.from({ length: cols }, (_, i) => (
-          <line
-            key={`v${i}`}
-            x1={(i + 1) * GRID_SIZE} y1={0}
-            x2={(i + 1) * GRID_SIZE} y2={height}
-            stroke={GRID} strokeWidth={GRID_WIDTH}
-          />
-        ))}
-        {Array.from({ length: rows }, (_, i) => (
-          <line
-            key={`h${i}`}
-            x1={0} y1={(i + 1) * GRID_SIZE}
-            x2={width} y2={(i + 1) * GRID_SIZE}
-            stroke={GRID} strokeWidth={GRID_WIDTH}
-          />
-        ))}
-        <line
-          x1={GRID_SIZE * 3} y1={0} x2={GRID_SIZE * 3} y2={height}
-          stroke={MARGIN_LINE} strokeWidth={1}
-        />
-      </g>
-      <g className="strokes" fill="none">
-        {drawing.strokes.map((s) => (
-          <path
-            key={s.id}
-            d={s.d}
-            stroke={s.color}
-            strokeWidth={s.width}
-            strokeLinecap={LINECAP}
-            strokeLinejoin={LINEJOIN}
-            strokeOpacity={s.pencil ? PENCIL_OPACITY : PEN_OPACITY}
-            filter={filterRef(s.pencil)}
-          />
-        ))}
-      </g>
-      <path
-        ref={drawing.liveRef}
-        className="live"
-        d=""
-        fill="none"
-        stroke={style.color}
-        strokeWidth={style.width}
-        strokeLinecap={LINECAP}
-        strokeLinejoin={LINEJOIN}
-        strokeOpacity={style.pencil ? PENCIL_OPACITY : PEN_OPACITY}
-        filter={filterRef(style.pencil)}
-      />
+
+      {layout.map((s) => (
+        <g
+          key={`${s.slot}:${s.index}`}
+          className={`leaf ${s.active ? 'is-active' : ''}`.trim()}
+          data-page={s.index}
+          transform={s.x ? `translate(${s.x} 0)` : undefined}
+        >
+          <Sheet width={width} height={height} dim={!s.active} ghost={s.ghost} />
+          {!s.ghost && <Ink strokes={drawing.pages?.[s.index]?.strokes || drawing.strokes} />}
+          {s.active && (
+            <path
+              ref={drawing.liveRef}
+              className="live"
+              d=""
+              fill="none"
+              stroke={style.color}
+              strokeWidth={style.width}
+              strokeLinecap={LINECAP}
+              strokeLinejoin={LINEJOIN}
+              strokeOpacity={style.pencil ? PENCIL_OPACITY : PEN_OPACITY}
+              filter={filterRef(style.pencil)}
+            />
+          )}
+        </g>
+      ))}
     </svg>
   )
 })

@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { __reset as __resetSound } from '../../lib/sound.js'
 import { useDrawing } from '../useDrawing.js'
 
 const STYLE = { color: '#1f3a6e', width: 2.2, pencil: false }
@@ -243,5 +244,120 @@ describe('restore', () => {
     let ok
     act(() => { ok = result.current.restore(null) })
     expect(ok).toBe(false)
+  })
+})
+
+describe('the sound of drawing', () => {
+  // The voice runs for the length of the stroke (lib/sound.js). Here we only
+  // care that the hook opens it on begin and closes it on every exit — a voice
+  // left running after the finger lifts is a stuck noise loop.
+  const install = () => {
+    const sources = []
+    const ctx = {
+      state: 'running',
+      currentTime: 0,
+      sampleRate: 8000,
+      destination: {},
+      resume: () => Promise.resolve(),
+      createBuffer: (ch, frames) => ({ getChannelData: () => new Float32Array(frames) }),
+      createBufferSource: () => {
+        const node = {
+          buffer: null,
+          loop: false,
+          playbackRate: { value: 1 },
+          connect: (n) => n,
+          start: () => {},
+          stop: () => { node.stopped = true },
+        }
+        sources.push(node)
+        return node
+      },
+      createBiquadFilter: () => ({
+        type: 'bandpass',
+        frequency: { value: 0, setTargetAtTime: () => {} },
+        Q: { value: 0 },
+        connect: (n) => n,
+      }),
+      createGain: () => ({
+        gain: { value: 0, setValueAtTime: () => {}, setTargetAtTime: () => {}, exponentialRampToValueAtTime: () => {} },
+        connect: (n) => n,
+      }),
+      createOscillator: () => ({
+        type: 'sine',
+        frequency: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} },
+        connect: (n) => n,
+        start: () => {},
+        stop: () => {},
+      }),
+    }
+    // A constructor, not an arrow: sound.js calls `new Ctor()`.
+    window.AudioContext = function () { return ctx }
+    return sources
+  }
+
+  beforeEach(() => __resetSound())
+  afterEach(() => {
+    delete window.AudioContext
+    __resetSound()
+  })
+
+  it('sounds while the stroke is being drawn, not after it lands', () => {
+    const sources = install()
+    const { result } = renderHook(() => useDrawing())
+    withLive(result)
+    act(() => result.current.begin(P(0, 0), STYLE))
+    expect(sources).toHaveLength(1)
+    expect(sources[0].loop).toBe(true)
+    expect(sources[0].stopped).toBeUndefined()
+  })
+
+  it('stops when the stroke commits', () => {
+    const sources = install()
+    const { result } = renderHook(() => useDrawing())
+    withLive(result)
+    draw(result, [P(0, 0), P(10, 10)])
+    expect(sources[0].stopped).toBe(true)
+  })
+
+  it('stops when the stroke is cancelled', () => {
+    const sources = install()
+    const { result } = renderHook(() => useDrawing())
+    withLive(result)
+    act(() => {
+      result.current.begin(P(0, 0), STYLE)
+      result.current.cancel()
+    })
+    expect(sources[0].stopped).toBe(true)
+  })
+
+  it('stops the freehand voice when a shape commits over it', () => {
+    const sources = install()
+    const { result } = renderHook(() => useDrawing())
+    withLive(result)
+    act(() => {
+      result.current.begin(P(0, 0), STYLE)
+      result.current.commitPath('M 0 0 L 10 10', STYLE, { length: 14 })
+    })
+    expect(sources[0].stopped).toBe(true)
+  })
+
+  it('opens one voice per stroke, never two at once', () => {
+    const sources = install()
+    const { result } = renderHook(() => useDrawing())
+    withLive(result)
+    draw(result, [P(0, 0), P(10, 10)])
+    draw(result, [P(20, 20), P(30, 30)])
+    // The one-shot `stroke` cue is a buffer source too; the voice is the
+    // looping one.
+    const voices = sources.filter((s) => s.loop)
+    expect(voices).toHaveLength(2)
+    expect(voices.every((s) => s.stopped)).toBe(true)
+  })
+
+  it('is silent — and still commits — with no AudioContext at all', () => {
+    const { result } = renderHook(() => useDrawing())
+    withLive(result)
+    draw(result, [P(0, 0), P(10, 10)])
+    expect(result.current.strokes).toHaveLength(1)
   })
 })
