@@ -22,6 +22,7 @@ const esc = (s) =>
     .replace(/"/g, '&quot;')
 
 const CROP_PAD = 8
+const PNG_SCALE = 2
 
 function strokePoints(stroke) {
   if (stroke.points && stroke.points.length) return stroke.points
@@ -82,7 +83,7 @@ export function strokeMarkup(stroke) {
 }
 
 export function toSVG(strokes, {
-  width, height, grid = true, margin = false, background = true, crop = false,
+  width, height, grid = true, margin = false, background = true, crop = false, fill,
 } = {}) {
   const frame = crop ? cropFrame(strokes) : null
   const ox = frame ? frame.x : 0
@@ -91,18 +92,21 @@ export function toSVG(strokes, {
   const h = Math.round(frame ? frame.height : height)
   const vx = Math.round(ox * 100) / 100
   const vy = Math.round(oy * 100) / 100
+  const paperFill = fill !== undefined ? fill : (background ? PAPER : null)
 
   const parts = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="${vx} ${vy} ${w} ${h}">`,
   ]
   // background defaults on so existing callers / print / old tests stay papered.
-  if (background) parts.push(`  <rect x="${vx}" y="${vy}" width="${w}" height="${h}" fill="${PAPER}" />`)
+  if (paperFill) parts.push(`  <rect x="${vx}" y="${vy}" width="${w}" height="${h}" fill="${paperFill}" />`)
   if (grid) parts.push(`  ${gridMarkup(w, h, GRID_SIZE, { x: vx, y: vy })}`)
-  if (margin && !frame) {
+  if (margin) {
     const x = GRID_SIZE * 3
-    parts.push(
-      `  <line x1="${x}" y1="0" x2="${x}" y2="${h}" stroke="${MARGIN_LINE}" stroke-width="1" />`,
-    )
+    if (!frame || (x >= vx && x <= vx + w)) {
+      parts.push(
+        `  <line x1="${x}" y1="${vy}" x2="${x}" y2="${vy + h}" stroke="${MARGIN_LINE}" stroke-width="1" />`,
+      )
+    }
   }
 
   const paths = strokes.map((s) => `    ${strokeMarkup(s)}`).join('\n')
@@ -112,24 +116,51 @@ export function toSVG(strokes, {
   return parts.join('\n')
 }
 
+export function svgSize(svg) {
+  const w = Number((svg.match(/\bwidth="([\d.]+)"/) || [])[1])
+  const h = Number((svg.match(/\bheight="([\d.]+)"/) || [])[1])
+  return { width: w || 1, height: h || 1 }
+}
+
+/** 2× PNG from a standalone SVG. Data-URI so Safari will paint it. */
+export function toPNG(svg, { scale = PNG_SCALE } = {}) {
+  const { width, height } = svgSize(svg)
+  return new Promise((resolve, reject) => {
+    const url = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
+    const img = new Image()
+    img.onload = () => {
+      const canvas = document.createElement('canvas')
+      canvas.width = Math.max(1, Math.round(width * scale))
+      canvas.height = Math.max(1, Math.round(height * scale))
+      const ctx = canvas.getContext('2d')
+      if (!ctx) {
+        reject(new Error('canvas'))
+        return
+      }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
+      canvas.toBlob((png) => {
+        if (!png) reject(new Error('png'))
+        else resolve(png)
+      }, 'image/png')
+    }
+    img.onerror = () => reject(new Error('svg'))
+    img.src = url
+  })
+}
+
 /** tetr-2026-08-24-1432.svg — sortable, and never collides within a minute. */
-export function filename(date = new Date()) {
+export function filename(date = new Date(), ext = 'svg') {
   const p = (n) => String(n).padStart(2, '0')
   return (
     `tetr-${date.getFullYear()}-${p(date.getMonth() + 1)}-${p(date.getDate())}` +
-    `-${p(date.getHours())}${p(date.getMinutes())}.svg`
+    `-${p(date.getHours())}${p(date.getMinutes())}.${ext}`
   )
 }
 
 export function download(svg, name = filename()) {
   const blob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' })
   const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = name
-  document.body.appendChild(a)
-  a.click()
-  a.remove()
+  downloadUrl(url, name)
   // Revoking synchronously cancels the download in Safari.
   setTimeout(() => URL.revokeObjectURL(url), 1000)
   return name

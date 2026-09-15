@@ -7,6 +7,16 @@ export const GRID = '#9fb3c8'
 export const GRID_SIZE = 24 // px between grid lines
 export const GRID_WIDTH = 0.5
 export const MARGIN_LINE = '#c98b8b'
+export const WHITE = '#ffffff'
+
+// Export backgrounds. Literals only — same reason as PAPER (CLAUDE.md).
+export const BACKGROUNDS = [
+  { id: 'clear', label: 'Թափանցիկ', fill: null, grid: false, margin: false },
+  { id: 'paper', label: 'Թուղթ', fill: PAPER, grid: false, margin: false },
+  { id: 'grid', label: 'Վանդակ', fill: PAPER, grid: true, margin: false },
+  { id: 'tetr', label: 'Տետր', fill: PAPER, grid: true, margin: true },
+  { id: 'white', label: 'Սպիտակ', fill: WHITE, grid: false, margin: false },
+]
 
 export const INK = {
   blue: '#1f3a6e',
