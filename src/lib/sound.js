@@ -97,6 +97,91 @@ function noise(ac, { at = 0, dur = 0.08, gain = 0.04, freq = 1800, q = 0.7 }) {
   src.stop(t0 + dur)
 }
 
+// The drawing voice. The nine cues below are events; this one is a surface —
+// it runs for as long as the finger does. Same rule as everywhere else in this
+// file: generated noise through a filter, never a recording.
+//
+// Pencil is broad, low grain — graphite dragging across tooth. Pen is a
+// narrower, wetter hiss. Both ride the hand: gain and brightness follow speed,
+// so a slow curve whispers and a fast diagonal scratches.
+const VOICES = {
+  pencil: { freq: 1500, q: 0.8, gain: 0.07, lift: 2200, rate: 1 },
+  ink: { freq: 3000, q: 2.4, gain: 0.045, lift: 2600, rate: 1.4 },
+}
+
+const NOISE_SECONDS = 1.2
+const REF_SPEED = 1.2 // px/ms — a brisk stroke
+const GLIDE = 0.04 // seconds for gain to reach a new speed
+
+let noiseCache = null
+
+function loopNoise(ac) {
+  if (noiseCache?.ac === ac) return noiseCache.buffer
+  const frames = Math.max(1, Math.floor(ac.sampleRate * NOISE_SECONDS))
+  const buffer = ac.createBuffer(1, frames, ac.sampleRate)
+  const data = buffer.getChannelData(0)
+  for (let i = 0; i < frames; i++) data[i] = Math.random() * 2 - 1
+  noiseCache = { ac, buffer }
+  return buffer
+}
+
+const SILENT_VOICE = { move() {}, stop() {}, silent: true }
+
+/**
+ * Start the sound of a stroke. Returns a voice: feed it speed on every move,
+ * stop it when the stroke commits. Always returns an object, so callers never
+ * guard — muted, no AudioContext and a thrown constructor all sound the same.
+ */
+export function startStroke({ pencil = true } = {}) {
+  if (muted) return SILENT_VOICE
+  const ac = context()
+  if (!ac) return SILENT_VOICE
+  if (ac.state === 'suspended') ac.resume().catch(() => {})
+
+  const spec = pencil ? VOICES.pencil : VOICES.ink
+  try {
+    const src = ac.createBufferSource()
+    src.buffer = loopNoise(ac)
+    src.loop = true
+    if (src.playbackRate) src.playbackRate.value = spec.rate
+
+    const filter = ac.createBiquadFilter()
+    filter.type = 'bandpass'
+    filter.frequency.value = spec.freq
+    filter.Q.value = spec.q
+
+    const amp = ac.createGain()
+    amp.gain.value = 0
+
+    src.connect(filter).connect(amp).connect(ac.destination)
+    src.start(ac.currentTime)
+
+    let stopped = false
+    return {
+      move(speed = 0) {
+        if (stopped) return
+        const drive = muted ? 0 : Math.min(1, Math.max(0, speed / REF_SPEED))
+        const t = ac.currentTime
+        // setTargetAtTime, not a step: a stepped gain on a noise loop clicks.
+        amp.gain.setTargetAtTime(spec.gain * (0.25 + 0.75 * drive), t, GLIDE)
+        filter.frequency.setTargetAtTime(spec.freq + spec.lift * drive, t, GLIDE)
+      },
+      stop() {
+        if (stopped) return
+        stopped = true
+        const t = ac.currentTime
+        amp.gain.setTargetAtTime(0, t, 0.02)
+        try {
+          src.stop(t + 0.12)
+        } catch {}
+      },
+      silent: false,
+    }
+  } catch {
+    return SILENT_VOICE
+  }
+}
+
 // Nine cues. Each is a shape, not a sample.
 const CUES = {
   tap: (ac) => tone(ac, { freq: 660, type: 'triangle', dur: 0.05, gain: 0.035 }),
@@ -142,5 +227,6 @@ export function __reset() {
   ctx = null
   muted = false
   unlocked = false
+  noiseCache = null
   listeners.clear()
 }

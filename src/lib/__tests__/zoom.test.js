@@ -17,14 +17,34 @@ describe('screenToWorld', () => {
 })
 
 describe('clampView', () => {
-  it('will not zoom out past the paper', () => {
-    expect(clampView({ scale: 0.4, x: 0, y: 0 }, SIZE).scale).toBe(MIN_ZOOM)
+  it('zooms out to half — far enough for two sheets', () => {
+    expect(MIN_ZOOM).toBe(0.5)
+    expect(clampView({ scale: 0.1, x: 0, y: 0 }, SIZE).scale).toBe(MIN_ZOOM)
   })
 
   it('keeps the window on the page', () => {
     const next = clampView({ scale: 2, x: 900, y: 900 }, SIZE)
     expect(next.x).toBe(200)
     expect(next.y).toBe(400)
+  })
+
+  it('centres a world smaller than the window instead of pinning it left', () => {
+    // At 0.5 the window is twice the sheet, so half a sheet of margin each side.
+    const next = clampView({ scale: 0.5, x: 0, y: 0 }, SIZE)
+    expect(next.x).toBe(-200)
+    expect(next.y).toBe(-400)
+  })
+
+  it('pans across a spread world that is wider than the window', () => {
+    const world = { width: 824, height: 800 }
+    const next = clampView({ scale: 0.5, x: 999, y: 0 }, SIZE, world)
+    expect(next.x).toBe(824 - 800)
+  })
+
+  it('takes the world as a function of the scale it settles on', () => {
+    const world = (scale) => (scale <= 0.8 ? { width: 824, height: 800 } : SIZE)
+    expect(clampView({ scale: 0.5, x: 999, y: 0 }, SIZE, world).x).toBe(24)
+    expect(clampView({ scale: 1, x: 999, y: 0 }, SIZE, world).x).toBe(0)
   })
 })
 

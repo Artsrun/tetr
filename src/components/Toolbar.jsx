@@ -5,7 +5,7 @@ import ToolButton from './ToolButton.jsx'
 import WidthPicker from './WidthPicker.jsx'
 
 export default function Toolbar({
-  style, setStyle, drawing, onExport, onPrint, byColor,
+  style, setStyle, drawing, onExport, onPrint, onLessons, byColor,
   view, onPrevPage, onNextPage, onAddPage, onZoomIn, onZoomOut, onZoomReset,
 }) {
   return (
@@ -48,6 +48,9 @@ export default function Toolbar({
       <div className="toolbar__group">
         <ToolButton label="Հետ" disabled={!drawing.canUndo} onPress={drawing.undo}>↩</ToolButton>
         <ToolButton label="Առաջ" disabled={!drawing.canRedo} onPress={drawing.redo}>↪</ToolButton>
+      </div>
+      <div className="toolbar__group">
+        <ToolButton label="Անկյուն և չափ" className="tool--lesson" onPress={onLessons}>📐</ToolButton>
       </div>
       <div className="toolbar__group">
         <ToolButton

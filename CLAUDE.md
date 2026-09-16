@@ -3,6 +3,9 @@
 Digital Soviet grid notebook. Draw with a finger, export real SVG. Mobile-first,
 offline, no accounts, no cloud, no tracking.
 
+Two editions out of one bundle: «Տետր» by default, «Երկրաչափ» on `?v=2`
+(`src/lib/edition.js`). They share every line of drawing code.
+
 ## The one rule
 
 **This is a gift, not a product.** Every decision optimises for the moment
@@ -13,8 +16,9 @@ worse, it's the wrong change — no matter what else it improves.
 
 React 19 · Vite 6 · Vitest 3 · plain CSS. Zero runtime dependencies beyond React.
 
-Adding a dependency needs a real argument. The whole app gzips to ~65KB and
-should stay there.
+Adding a dependency needs a real argument. The whole app gzips to ~87KB — most
+of it React, and ~6KB of it the Armenian lesson copy, which is two bytes a
+character. It should stay around there.
 
 ## Architecture
 
@@ -31,6 +35,9 @@ src/
   lib/solids.js     cabinet projection — the five school solids
   lib/hit.js        path flattening + hit-testing, so the rubber can lift ink
   lib/gestures.js   triple-tap tracker — strict on purpose, see below
+  lib/spread.js     which page sits on which side when the notebook lies flat
+  lib/lessons.js    school angle/measure/algebra facts, and the maths behind them
+  lib/edition.js    the two editions and the ?v=2 door between them
   lib/constants.js  design tokens, mirrored in index.css
   hooks/useDrawing  all stroke state, history, derived stats
   components/       one control per file, all built on ToolButton
@@ -213,6 +220,57 @@ unless the stylesheet opts back out.
 thing anyone does after choosing a shape is draw, and a picker you have to
 dismiss by hand eats that first stroke.
 
+**The rebrand is a query param, not a branch.** `?v=2` opens «Երկրաչափ»;
+everything else opens «Տետր». One bundle, one deploy, one table
+(`lib/edition.js`) holding every difference — and a stranger with a link can
+see either. An edition changes the name, the mark, the title, the chrome
+palette and what the app opens on. It does **not** change `--paper`, `--grid`
+or any stroke value: those literals are written into every exported file, so a
+rebrand that moved them would retroactively change work people already made. A
+rebrand is a cover, not a line.
+
+**Each edition gets its own wizard key.** A new cover deserves its own first
+run; sharing the key would mean the v2 tour never shows to anyone who already
+used v1.
+
+**Zoom goes below 1, and at ≤0.8 the notebook lies flat.** `MIN_ZOOM` is 0.5
+because 390×2 + a gutter is 804, and a 390px phone at 50% shows 780 of it —
+two sheets, which is what opening a notebook looks like. `clampView` centres
+the world when the window is wider than it, instead of pinning it to the left
+edge with dead space beside it.
+
+**Strokes stay page-local; a spread only moves a sheet's origin.** `Canvas.at()`
+subtracts the active sheet's origin before any point leaves the component, so
+`useDrawing`, the gestures and the calliper never learn that a spread exists —
+and nothing on disk changes when you zoom out.
+
+**The facing sheet is a page, not more canvas.** Touching it turns to it; the
+ghost sheet on the right of the last page adds one. Drawing across the binding
+would have to either split a stroke over two pages or silently pick one, and
+both are the app deciding something the hand did not.
+
+**The stroke has a voice, and it is generated too.** `startStroke()` opens one
+looping noise source per stroke, band-passed (broad and low for pencil,
+narrower for pen) with gain and brightness following px/ms — a slow curve
+whispers, a fast diagonal scratches. It is not a cue: cues are events, this is
+a surface. Still no audio file, and there must never be one. `startStroke`
+always returns a voice object, so muted, no AudioContext and a thrown
+constructor all sound the same to the caller and nothing needs a guard.
+
+**Every exit from a stroke silences it.** commit, commitPath and cancel all
+call `hush()`. A voice left running after the finger lifts is a stuck noise
+loop, which is the single worst bug this feature could have.
+
+**The lessons panel reads from the same functions the calliper does.**
+`lessons.js` holds both the copy and the maths, so the name under the
+instrument («սուր անկյուն») and the sentence in the panel cannot disagree. The
+calliper draws the arc it is quoting — the explanation sits over the
+measurement rather than beside it.
+
+**One cell is 5mm.** That is what Soviet grid paper measures, so every length
+can be said in cells, millimetres and centimetres without inventing a scale
+nobody can check with a ruler.
+
 **`getCoalescedEvents` in the move handler.** Replays samples the browser
 batched between frames. On 120Hz displays it's the difference between a smooth
 curve and a faceted one.
@@ -224,7 +282,7 @@ npm test          # once
 npm run test:watch
 ```
 
-298 tests. Keep it that way — logic lives in `lib/` and `hooks/` precisely so it
+407 tests. Keep it that way — logic lives in `lib/` and `hooks/` precisely so it
 can be tested without rendering.
 
 Note: tests dispatch `pointerdown`, not `click`, because that's what the

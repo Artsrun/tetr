@@ -1,8 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { CUE_NAMES, __reset, isMuted, play, setMuted, subscribe, toggleMute, unlock } from '../sound.js'
+import {
+  CUE_NAMES, __reset, isMuted, play, setMuted, startStroke, subscribe, toggleMute, unlock,
+} from '../sound.js'
 
 function fakeContext() {
   const started = []
+  const sources = []
+  const gains = []
   const ctx = {
     state: 'running',
     currentTime: 0,
@@ -16,19 +20,42 @@ function fakeContext() {
       start: (t) => started.push(t),
       stop: vi.fn(),
     }),
-    createGain: () => ({
-      gain: { value: 0, setValueAtTime: vi.fn(), exponentialRampToValueAtTime: vi.fn() },
+    createGain: () => {
+      const node = {
+        gain: {
+          value: 0,
+          setValueAtTime: vi.fn(),
+          exponentialRampToValueAtTime: vi.fn(),
+          setTargetAtTime: vi.fn(),
+        },
+        connect: (n) => n,
+      }
+      gains.push(node)
+      return node
+    },
+    createBiquadFilter: () => ({
+      type: 'bandpass',
+      frequency: { value: 0, setTargetAtTime: vi.fn() },
+      Q: { value: 0 },
       connect: (n) => n,
     }),
-    createBiquadFilter: () => ({
-      type: 'bandpass', frequency: { value: 0 }, Q: { value: 0 }, connect: (n) => n,
-    }),
     createBuffer: (ch, frames) => ({ getChannelData: () => new Float32Array(frames) }),
-    createBufferSource: () => ({
-      buffer: null, connect: (n) => n, start: (t) => started.push(t), stop: vi.fn(),
-    }),
+    createBufferSource: () => {
+      const node = {
+        buffer: null,
+        loop: false,
+        playbackRate: { value: 1 },
+        connect: (n) => n,
+        start: (t) => started.push(t),
+        stop: vi.fn(),
+      }
+      sources.push(node)
+      return node
+    },
   }
   ctx.started = started
+  ctx.sources = sources
+  ctx.gains = gains
   return ctx
 }
 
@@ -65,6 +92,80 @@ describe('cues', () => {
     play('celebrate')
     expect(ctx.started).toHaveLength(4)
     expect(Math.max(...ctx.started)).toBeCloseTo(0.3, 5)
+  })
+})
+
+describe('the drawing voice', () => {
+  it('runs for the length of the stroke, not as a one-shot', () => {
+    const voice = startStroke({ pencil: true })
+    expect(voice.silent).toBe(false)
+    expect(ctx.sources).toHaveLength(1)
+    expect(ctx.sources[0].loop).toBe(true)
+  })
+
+  it('is generated noise — no decoded file anywhere in it', () => {
+    startStroke({ pencil: true })
+    expect(ctx.sources[0].buffer).toBeTruthy()
+    expect(ctx.started).toHaveLength(1)
+  })
+
+  it('gives the pencil and the pen different voices', () => {
+    const pencilFilter = []
+    const original = ctx.createBiquadFilter
+    ctx.createBiquadFilter = () => {
+      const f = original()
+      pencilFilter.push(f)
+      return f
+    }
+    startStroke({ pencil: true })
+    startStroke({ pencil: false })
+    expect(pencilFilter[0].frequency.value).not.toBe(pencilFilter[1].frequency.value)
+  })
+
+  it('rides the hand — a faster stroke is louder than a slow one', () => {
+    const voice = startStroke({ pencil: true })
+    const amp = ctx.gains[ctx.gains.length - 1]
+    voice.move(0.1)
+    voice.move(4)
+    const [slow] = amp.gain.setTargetAtTime.mock.calls[0]
+    const [fast] = amp.gain.setTargetAtTime.mock.calls[1]
+    expect(fast).toBeGreaterThan(slow)
+  })
+
+  it('fades out rather than cutting, and stops the source', () => {
+    const voice = startStroke({ pencil: true })
+    const amp = ctx.gains[ctx.gains.length - 1]
+    voice.stop()
+    expect(amp.gain.setTargetAtTime).toHaveBeenCalledWith(0, expect.any(Number), expect.any(Number))
+    expect(ctx.sources[0].stop).toHaveBeenCalled()
+  })
+
+  it('ignores a move after it has stopped', () => {
+    const voice = startStroke({ pencil: true })
+    const amp = ctx.gains[ctx.gains.length - 1]
+    voice.stop()
+    amp.gain.setTargetAtTime.mockClear()
+    voice.move(2)
+    expect(amp.gain.setTargetAtTime).not.toHaveBeenCalled()
+  })
+
+  it('is silent when muted, and callers still need no guard', () => {
+    setMuted(true)
+    const voice = startStroke({ pencil: true })
+    expect(voice.silent).toBe(true)
+    expect(ctx.sources).toHaveLength(0)
+    expect(() => {
+      voice.move(3)
+      voice.stop()
+    }).not.toThrow()
+  })
+
+  it('returns a usable voice with no AudioContext at all', () => {
+    __reset()
+    delete window.AudioContext
+    const voice = startStroke({ pencil: false })
+    expect(voice.silent).toBe(true)
+    expect(() => voice.stop()).not.toThrow()
   })
 })
 
