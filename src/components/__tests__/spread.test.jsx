@@ -102,6 +102,15 @@ describe('a spread is a notebook, not a canvas', () => {
     expect(Number(d.split(' ')[1])).toBeLessThan(390)
   })
 
+  it('stops ink at the binding — a drag cannot cross onto the facing sheet', () => {
+    render(<App />)
+    openFlat()
+    stroke([40, 200], [380, 200])
+    const d = inkOn(0)[0].getAttribute('d')
+    const xs = [...d.matchAll(/(-?\d+(?:\.\d+)?)/g)].map((m) => Number(m[1]))
+    expect(Math.max(...xs)).toBeLessThanOrEqual(390)
+  })
+
   it("keeps each page's ink on its own sheet", () => {
     render(<App />)
     stroke([40, 40], [120, 160]) // page 1, at full size
