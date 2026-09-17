@@ -103,12 +103,19 @@ const Canvas = forwardRef(function Canvas(
   // One coordinate source. Drawing, gestures and the calliper all read the
   // same point, so nothing downstream has to know about the view transform
   // or which side of the spread the active page is sitting on.
+  // On a spread the binding is an edge, not more paper — clamp so a drag
+  // that starts on the active sheet cannot write past it.
   const at = useCallback(
     (e) => {
       const p = worldAt(e)
-      return ox ? { x: p.x - ox, y: p.y } : p
+      const local = ox ? { x: p.x - ox, y: p.y } : p
+      if (!spread) return local
+      return {
+        x: Math.max(0, Math.min(width, local.x)),
+        y: Math.max(0, Math.min(height, local.y)),
+      }
     },
-    [worldAt, ox],
+    [worldAt, ox, spread, width, height],
   )
 
   useImperativeHandle(ref, () => ({ at, node: () => svgRef.current }), [at])
