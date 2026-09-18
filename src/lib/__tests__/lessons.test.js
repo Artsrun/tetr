@@ -8,6 +8,7 @@ import {
 describe('classifyAngle', () => {
   it('names every kind a textbook names', () => {
     expect(classifyAngle(0).id).toBe('zero')
+    expect(classifyAngle(0).label).toBe('Զրոյական անկյուն')
     expect(classifyAngle(45).id).toBe('acute')
     expect(classifyAngle(90).id).toBe('right')
     expect(classifyAngle(120).id).toBe('obtuse')

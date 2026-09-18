@@ -15,7 +15,7 @@ export const CELL_MM = 5
 export const normalizeAngle = (deg) => ((Number(deg) % 360) + 360) % 360
 
 export const ANGLE_KINDS = [
-  { id: 'zero', label: 'Դրոյական անկյուն', range: '0°' },
+  { id: 'zero', label: 'Զրոյական անկյուն', range: '0°' },
   { id: 'acute', label: 'Սուր անկյուն', range: '0°–90°' },
   { id: 'right', label: 'Ուղղիղ անկյուն', range: '90°' },
   { id: 'obtuse', label: 'Բութ անկյուն', range: '90°–180°' },
