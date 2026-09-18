@@ -54,6 +54,12 @@ describe('?v=2', () => {
     expect(screen.getByLabelText('Վերականգնել չափը').textContent).toBe('50%')
   })
 
+  it('centres the spread on the window instead of pinning it to the top-left', () => {
+    openWith('?v=2')
+    // 390×700 phone at 0.5: window is 780×1400, world is 804×700, so y centres.
+    expect(document.querySelector('.paper').getAttribute('viewBox')).toBe('0 -350 780 1400')
+  })
+
   it('still draws on the same paper — a rebrand is a cover, not a line', () => {
     const { unmount } = openWith('?v=2')
     const v2Paper = document.querySelector('.leaf rect').getAttribute('fill')

@@ -56,10 +56,15 @@ export default function App() {
   const [instrument, setInstrument] = useState(null)
   const [party, setParty] = useState(false)
   const [coachTick, setCoachTick] = useState(0)
+  // Two sheets and the binding when zoomed out, one sheet otherwise. Passed as
+  // a function of scale because the answer depends on the scale being clamped.
+  const world = useCallback((scale) => worldOf(size, isSpread(scale)), [size])
   // v2 opens the notebook flat — two sheets — because it is the edition about
   // measuring across a spread. v1 opens on one page, the way it always has.
+  // clampView centres a world shorter than the window; without it the sheets
+  // sit in the top half of a phone with empty paper underneath.
   const [view, setView] = useState(() =>
-    (edition.spreadOnOpen ? { scale: MIN_ZOOM, x: 0, y: 0 } : defaultView()))
+    clampView(edition.spreadOnOpen ? { scale: MIN_ZOOM, x: 0, y: 0 } : defaultView(), size, world))
   const [exportOpen, setExportOpen] = useState(false)
   const [lessonsOpen, setLessonsOpen] = useState(false)
 
@@ -67,9 +72,9 @@ export default function App() {
     applyEdition(edition)
   }, [edition])
 
-  // Two sheets and the binding when zoomed out, one sheet otherwise. Passed as
-  // a function of scale because the answer depends on the scale being clamped.
-  const world = useCallback((scale) => worldOf(size, isSpread(scale)), [size])
+  useEffect(() => {
+    setView((cur) => clampView(cur, size, world))
+  }, [size, world])
   const originX = activeOrigin(sheets({
     scale: view.scale,
     index: drawing.pageIndex,
