@@ -43,3 +43,18 @@ Element.prototype.getBoundingClientRect = function () {
 }
 
 afterEach(() => cleanup())
+
+// jsdom's <dialog> is incomplete: showModal/close/open don't drive the
+// accessibility tree the way a browser does. Enough of a stub for the tests
+// that open Export + Lessons as native dialogs.
+if (typeof HTMLDialogElement !== 'undefined') {
+  const proto = HTMLDialogElement.prototype
+  proto.showModal = function showModal() {
+    this.setAttribute('open', '')
+  }
+  proto.close = function close(returnValue) {
+    if (returnValue !== undefined) this.returnValue = returnValue
+    this.removeAttribute('open')
+    this.dispatchEvent(new Event('close'))
+  }
+}

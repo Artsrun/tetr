@@ -16,6 +16,9 @@ const tap = (x, y) => {
 const press = (label) =>
   fireEvent(screen.getByLabelText(label), new PointerEvent('pointerdown', { bubbles: true, cancelable: true }))
 
+const cancel = (el) =>
+  fireEvent(el, new Event('cancel', { cancelable: true }))
+
 const tripleTap = (x, y) => {
   tap(x, y)
   tap(x, y)
@@ -45,7 +48,7 @@ describe('the panel', () => {
   it('closes on Escape', () => {
     render(<App />)
     press('Անկյուն և չափ')
-    fireEvent.keyDown(window, { key: 'Escape' })
+    cancel(screen.getByRole('dialog', { name: 'Անկյուն և չափ' }))
     expect(screen.queryByRole('dialog', { name: 'Անկյուն և չափ' })).toBeNull()
   })
 
@@ -53,6 +56,43 @@ describe('the panel', () => {
     render(<App />)
     press('Անկյուն և չափ')
     press('Փակել')
+    expect(screen.queryByRole('dialog', { name: 'Անկյուն և չափ' })).toBeNull()
+  })
+
+  it('closes only the topmost dialog on Escape', () => {
+    const createObjectURL = URL.createObjectURL
+    const revokeObjectURL = URL.revokeObjectURL
+    URL.createObjectURL = vi.fn(() => 'blob:x')
+    URL.revokeObjectURL = vi.fn()
+    try {
+      render(<App />)
+      press('Անկյուն և չափ')
+      press('Ներբեռնել SVG')
+      cancel(document.querySelector('.export'))
+      expect(document.querySelector('.export')).toBeNull()
+      expect(screen.getByRole('dialog', { name: 'Անկյուն և չափ' })).toBeInTheDocument()
+    } finally {
+      URL.createObjectURL = createObjectURL
+      URL.revokeObjectURL = revokeObjectURL
+    }
+  })
+
+  it('light-dismisses on backdrop click when closedBy is missing', () => {
+    const onClose = vi.fn()
+    render(<Lessons onClose={onClose} />)
+    const dialog = screen.getByRole('dialog', { name: 'Անկյուն և չափ' })
+    dialog.getBoundingClientRect = () => ({
+      left: 40,
+      top: 60,
+      right: 180,
+      bottom: 220,
+      width: 140,
+      height: 160,
+      x: 40,
+      y: 60,
+    })
+    fireEvent.click(dialog, { clientX: 20, clientY: 20 })
+    expect(onClose).toHaveBeenCalledTimes(1)
     expect(screen.queryByRole('dialog', { name: 'Անկյուն և չափ' })).toBeNull()
   })
 
