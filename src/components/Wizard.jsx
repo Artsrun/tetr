@@ -97,7 +97,7 @@ export default function Wizard({ replay = 0, onOpenChange, edition }) {
           <span key={s.id} className={`coach__pip ${i === step ? 'is-on' : ''} ${i < step ? 'is-done' : ''}`} />
         ))}
       </div>
-      <p className="coach__kicker">{current.kicker}</p>
+      {/* <p className="coach__kicker">{current.kicker}</p> */}
       <h2 className="coach__title">{current.title}</h2>
       {step === 0 && edition?.tagline && <p className="coach__tagline">{edition.tagline}</p>}
       <p className="coach__body" id="coach-body">{current.body}</p>
