@@ -2,8 +2,9 @@ import { useEffect, useRef } from 'react'
 
 /**
  * Native <dialog showModal()>. The element is the card; ::backdrop is the dim.
- * Esc always closes. Light-dismiss via closedby="any", with a click fallback
- * when HTMLDialogElement.closedBy is missing (Safari as of 2026).
+ * Escape comes through the dialog's cancel event. Light-dismiss via
+ * closedby="any", with a click fallback when HTMLDialogElement.closedBy is
+ * missing (Safari as of 2026).
  */
 export function useModalDialog(onClose) {
   const ref = useRef(null)
@@ -20,10 +21,11 @@ export function useModalDialog(onClose) {
     const onClosed = () => onCloseRef.current?.()
     el.addEventListener('close', onClosed)
 
-    const onKey = (e) => {
-      if (e.key === 'Escape' && el.open) el.close()
+    const onCancel = (event) => {
+      event.preventDefault()
+      if (el.open) el.close()
     }
-    window.addEventListener('keydown', onKey)
+    el.addEventListener('cancel', onCancel)
 
     let onClick
     if (!('closedBy' in HTMLDialogElement.prototype)) {
@@ -43,7 +45,7 @@ export function useModalDialog(onClose) {
 
     return () => {
       el.removeEventListener('close', onClosed)
-      window.removeEventListener('keydown', onKey)
+      el.removeEventListener('cancel', onCancel)
       if (onClick) el.removeEventListener('click', onClick)
     }
   }, [])
