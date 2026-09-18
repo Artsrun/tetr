@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import { useModalDialog } from '../hooks/useModalDialog.js'
 import { measure } from '../lib/instruments.js'
 import {
   LESSON_GROUPS, explainAngle, explainSpan, lessonsIn, pythagoras,
@@ -40,62 +41,50 @@ function Reading({ instrument }) {
  * of lessons.js, so the panel and the calliper can never disagree.
  */
 export default function Lessons({ instrument, onClose }) {
+  const ref = useModalDialog(onClose)
   const [group, setGroup] = useState(LESSON_GROUPS[0].id)
-  const ref = useRef(null)
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.key === 'Escape') onClose?.()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
 
   return (
-    <div
+    <dialog
+      ref={ref}
       className="lessons"
-      role="dialog"
-      aria-label="Անկյուն և չափ"
-      onPointerDown={(e) => {
-        if (!ref.current?.contains(e.target)) onClose?.()
-      }}
+      closedby="any"
+      aria-labelledby="lessons-title"
     >
-      <div className="lessons__card" ref={ref}>
-        <div className="lessons__head">
-          <h2 className="lessons__title">Անկյուն և չափ</h2>
-          <ToolButton label="Փակել" className="lessons__close" onPress={onClose}>✕</ToolButton>
-        </div>
-
-        <Reading instrument={instrument} />
-
-        <div className="lessons__tabs" role="group" aria-label="Բաժիններ">
-          {LESSON_GROUPS.map((g) => (
-            <ToolButton
-              key={g.id}
-              label={g.label}
-              className="lessons__tab"
-              active={group === g.id}
-              onPress={() => setGroup(g.id)}
-            >
-              {g.label}
-            </ToolButton>
-          ))}
-        </div>
-
-        <div className="lessons__list">
-          {lessonsIn(group).map((l) => (
-            <article key={l.id} className="lessons__item">
-              <h3 className="lessons__item-title">{l.title}</h3>
-              <p className="lessons__formula">{l.formula}</p>
-              <p className="lessons__body">{l.body}</p>
-            </article>
-          ))}
-        </div>
-
-        <p className="lessons__foot">
-          Երեք հպում թղթին՝ կարկինը դուրս է գալիս և չափում է հենց այս վանդակներով։
-        </p>
+      <div className="lessons__head">
+        <h2 id="lessons-title" className="lessons__title">Անկյուն և չափ</h2>
+        <ToolButton label="Փակել" className="lessons__close" onPress={() => ref.current?.close()}>✕</ToolButton>
       </div>
-    </div>
+
+      <Reading instrument={instrument} />
+
+      <div className="lessons__tabs" role="group" aria-label="Բաժիններ">
+        {LESSON_GROUPS.map((g) => (
+          <ToolButton
+            key={g.id}
+            label={g.label}
+            className="lessons__tab"
+            active={group === g.id}
+            onPress={() => setGroup(g.id)}
+          >
+            {g.label}
+          </ToolButton>
+        ))}
+      </div>
+
+      <div className="lessons__list">
+        {lessonsIn(group).map((l) => (
+          <article key={l.id} className="lessons__item">
+            <h3 className="lessons__item-title">{l.title}</h3>
+            <p className="lessons__formula">{l.formula}</p>
+            <p className="lessons__body">{l.body}</p>
+          </article>
+        ))}
+      </div>
+
+      <p className="lessons__foot">
+        Երեք հպում թղթին՝ կարկինը դուրս է գալիս և չափում է հենց այս վանդակներով։
+      </p>
+    </dialog>
   )
 }
